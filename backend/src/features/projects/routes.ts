@@ -3,7 +3,17 @@ import * as v from "valibot";
 import sql from "../../db";
 import { CreateProjectSchema, UpdateProjectSchema } from "./schema";
 
+const isValidId = (id: string) => {
+  const n = Number(id);
+  return Number.isInteger(n) && n > 0;
+};
+
 export const projectsRoutes = new Elysia({ prefix: "/api/projects" })
+  .onError(({ code, error }) => {
+    if (code === "NOT_FOUND") return;
+    return { message: error.message };
+  })
+
   .get("/", async () => {
     const projects = await sql`SELECT * FROM projects ORDER BY created_at DESC`;
     return projects;
@@ -26,6 +36,11 @@ export const projectsRoutes = new Elysia({ prefix: "/api/projects" })
   })
 
   .put("/:id", async ({ params, body, set }) => {
+    if (!isValidId(params.id)) {
+      set.status = 400;
+      return { message: "Invalid project ID" };
+    }
+
     const result = v.safeParse(UpdateProjectSchema, body);
     if (!result.success) {
       set.status = 400;
@@ -33,6 +48,11 @@ export const projectsRoutes = new Elysia({ prefix: "/api/projects" })
     }
 
     const { name, description } = result.output;
+
+    if (name === undefined && description === undefined) {
+      set.status = 400;
+      return { message: "No fields to update" };
+    }
 
     const [project] = await sql`
       UPDATE projects SET
@@ -51,6 +71,11 @@ export const projectsRoutes = new Elysia({ prefix: "/api/projects" })
   })
 
   .delete("/:id", async ({ params, set }) => {
+    if (!isValidId(params.id)) {
+      set.status = 400;
+      return { message: "Invalid project ID" };
+    }
+
     const [project] = await sql`
       DELETE FROM projects WHERE id = ${Number(params.id)}
       RETURNING *
