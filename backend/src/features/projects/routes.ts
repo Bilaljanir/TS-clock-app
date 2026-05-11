@@ -1,5 +1,6 @@
 import { Elysia, t } from "elysia";
 import * as repo from "./repository";
+import { CreateProjectSchema, UpdateProjectSchema } from "./schema";
 
 export const projectsRoutes = new Elysia({ prefix: "/api/projects" })
   .onError(({ code, error }) => {
@@ -14,10 +15,7 @@ export const projectsRoutes = new Elysia({ prefix: "/api/projects" })
   .post("/", async ({ body }) => {
     return await repo.create(body);
   }, {
-    body: t.Object({
-      name: t.String({ minLength: 1, maxLength: 255 }),
-      description: t.Optional(t.String()),
-    })
+    body: CreateProjectSchema,
   })
 
   .put("/:id", async ({ params: { id }, body, set }) => {
@@ -36,10 +34,7 @@ export const projectsRoutes = new Elysia({ prefix: "/api/projects" })
     return project;
   }, {
     params: t.Object({ id: t.Numeric() }),
-    body: t.Object({
-      name: t.Optional(t.String({ minLength: 1, maxLength: 255 })),
-      description: t.Optional(t.String()),
-    })
+    body: UpdateProjectSchema,
   })
 
   .delete("/:id", async ({ params: { id }, set }) => {
@@ -52,5 +47,5 @@ export const projectsRoutes = new Elysia({ prefix: "/api/projects" })
 
     return { message: "Project deleted", project };
   }, {
-    params: t.Object({ id: t.Numeric() })
+    params: t.Object({ id: t.Numeric() }),
   });
