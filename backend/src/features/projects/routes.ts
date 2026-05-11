@@ -1,66 +1,32 @@
-import { Elysia } from "elysia";
-import * as v from "valibot";
-import sql from "../../db";
-import { CreateProjectSchema, UpdateProjectSchema } from "./schema";
-
-const isValidId = (id: string) => {
-  const n = Number(id);
-  return Number.isInteger(n) && n > 0;
-};
+import { Elysia, t } from "elysia";
+import * as repo from "./repository";
 
 export const projectsRoutes = new Elysia({ prefix: "/api/projects" })
   .onError(({ code, error }) => {
     if (code === "NOT_FOUND") return;
-    return { message: error.message };
+    console.error(error);
   })
 
   .get("/", async () => {
-    const projects = await sql`SELECT * FROM projects ORDER BY created_at DESC`;
-    return projects;
+    return await repo.findAll();
   })
 
-  .post("/", async ({ body, set }) => {
-    const result = v.safeParse(CreateProjectSchema, body);
-    if (!result.success) {
-      set.status = 400;
-      return { message: "Validation failed", issues: result.issues };
-    }
-
-    const { name, description } = result.output;
-    const [project] = await sql`
-      INSERT INTO projects (name, description)
-      VALUES (${name}, ${description ?? null})
-      RETURNING *
-    `;
-    return project;
+  .post("/", async ({ body }) => {
+    return await repo.create(body);
+  }, {
+    body: t.Object({
+      name: t.String({ minLength: 1, maxLength: 255 }),
+      description: t.Optional(t.String()),
+    })
   })
 
-  .put("/:id", async ({ params, body, set }) => {
-    if (!isValidId(params.id)) {
-      set.status = 400;
-      return { message: "Invalid project ID" };
-    }
-
-    const result = v.safeParse(UpdateProjectSchema, body);
-    if (!result.success) {
-      set.status = 400;
-      return { message: "Validation failed", issues: result.issues };
-    }
-
-    const { name, description } = result.output;
-
-    if (name === undefined && description === undefined) {
+  .put("/:id", async ({ params: { id }, body, set }) => {
+    if (body.name === undefined && body.description === undefined) {
       set.status = 400;
       return { message: "No fields to update" };
     }
 
-    const [project] = await sql`
-      UPDATE projects SET
-        name = COALESCE(${name ?? null}, name),
-        description = COALESCE(${description ?? null}, description)
-      WHERE id = ${Number(params.id)}
-      RETURNING *
-    `;
+    const project = await repo.update(id, body);
 
     if (!project) {
       set.status = 404;
@@ -68,18 +34,16 @@ export const projectsRoutes = new Elysia({ prefix: "/api/projects" })
     }
 
     return project;
+  }, {
+    params: t.Object({ id: t.Numeric() }),
+    body: t.Object({
+      name: t.Optional(t.String({ minLength: 1, maxLength: 255 })),
+      description: t.Optional(t.String()),
+    })
   })
 
-  .delete("/:id", async ({ params, set }) => {
-    if (!isValidId(params.id)) {
-      set.status = 400;
-      return { message: "Invalid project ID" };
-    }
-
-    const [project] = await sql`
-      DELETE FROM projects WHERE id = ${Number(params.id)}
-      RETURNING *
-    `;
+  .delete("/:id", async ({ params: { id }, set }) => {
+    const project = await repo.remove(id);
 
     if (!project) {
       set.status = 404;
@@ -87,4 +51,6 @@ export const projectsRoutes = new Elysia({ prefix: "/api/projects" })
     }
 
     return { message: "Project deleted", project };
+  }, {
+    params: t.Object({ id: t.Numeric() })
   });
