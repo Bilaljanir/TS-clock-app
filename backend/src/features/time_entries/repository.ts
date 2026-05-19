@@ -1,15 +1,17 @@
 import sql from "../../db";
+import type { Project } from "../projects/repository";
+import type { Label } from "../labels/repository";
 
 export type TimeEntry = {
   id: number;
-  project_id: number | null;
-  description: string | null;
+  project_id?: number;
+  description?: string;
   start_time: string;
-  end_time: string | null;
+  end_time?: string;
   created_at: string;
   updated_at: string;
-  project: { id: number; name: string } | null;
-  labels: { id: number; name: string; color: string | null }[];
+  project?: Pick<Project, "id" | "name">;
+  labels?: Pick<Label, "id" | "name" | "color">[];
 };
 
 const ENTRY_SELECT = `
@@ -76,11 +78,12 @@ export async function create(data: {
     `;
 
     if (data.label_ids && data.label_ids.length > 0) {
-      await tx`
-        INSERT INTO time_entry_labels (time_entry_id, label_id)
-        SELECT ${entry.id}, unnest(${data.label_ids}::int[])
-        ON CONFLICT DO NOTHING
-      `;
+      for (const labelId of data.label_ids) {
+          await tx`
+              INSERT INTO time_entry_labels (time_entry_id, label_id)
+              SELECT ${entry.id}, unnest(${data.label_ids}::int[])
+                  ON CONFLICT DO NOTHING
+          `;}
     }
 
     const result = await tx<TimeEntry[]>`
@@ -127,7 +130,7 @@ export async function update(
     if (data.label_ids !== undefined) {
       await tx`DELETE FROM time_entry_labels WHERE time_entry_id = ${id}`;
       if (data.label_ids.length > 0) {
-        await tx`
+          await tx`
           INSERT INTO time_entry_labels (time_entry_id, label_id)
           SELECT ${id}, unnest(${data.label_ids}::int[])
           ON CONFLICT DO NOTHING
