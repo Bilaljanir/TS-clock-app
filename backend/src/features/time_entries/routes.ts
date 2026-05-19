@@ -25,18 +25,7 @@ export const timeEntriesRoutes = new Elysia({ prefix: "/api/time-entries" })
     body: CreateTimeEntrySchema,
   })
 
-  .put("/:id", async ({ params: { id }, body, set }) => {
-    if (
-      body.project_id === undefined &&
-      body.description === undefined &&
-      body.start_time === undefined &&
-      body.end_time === undefined &&
-      body.label_ids === undefined
-    ) {
-      set.status = 400;
-      return { message: "No fields to update" };
-    }
-
+  .put("/:id", async ({ params: { id }, body }) => {
     const entry = await repo.update(id, body);
 
     if (!entry) throw new NotFoundError("Time entry");

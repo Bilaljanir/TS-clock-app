@@ -113,7 +113,10 @@ export async function update(
       data.start_time !== undefined ||
       data.end_time !== undefined;
 
-    if (!hasFieldChanges && data.label_ids === undefined) return null;
+    if (!hasFieldChanges && data.label_ids === undefined) {
+      const [existing] = await tx<TimeEntry[]>`SELECT ${sql(ENTRY_SELECT)} ${sql(ENTRY_FROM)} WHERE te.id = ${id} GROUP BY te.id, p.id, p.name`;
+      return existing ?? null;
+    }
 
     if (hasFieldChanges) {
       const [updated] = await tx<TimeEntry[]>`
