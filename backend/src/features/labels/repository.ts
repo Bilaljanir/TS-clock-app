@@ -26,12 +26,12 @@ export async function create(data: {
 
 export async function update(
   id: number,
-  data: { name?: string; color?: string }
+  data: { name?: string; color?: string | null }
 ): Promise<Label | null> {
   const [label] = await sql<Label[]>`
     UPDATE labels SET
-      name = COALESCE(${data.name ?? null}, name),
-      color = COALESCE(${data.color ?? null}, color)
+      name = ${data.name !== undefined ? sql`${data.name}` : sql`name`},
+      color = ${data.color !== undefined ? sql`${data.color}` : sql`color`}
     WHERE id = ${id}
     RETURNING *
   `;

@@ -99,24 +99,33 @@ export async function update(
   id: number,
   data: {
     project_id?: number;
-    description?: string;
+    description?: string | null;
     start_time?: string;
-    end_time?: string;
+    end_time?: string | null;
     label_ids?: number[];
   },
 ): Promise<TimeEntry | null> {
   return await sql.begin(async (tx) => {
-    const [updated] = await tx<TimeEntry[]>`
-      UPDATE time_entries SET
-        project_id = COALESCE(${data.project_id ?? null}, project_id),
-        description = COALESCE(${data.description ?? null}, description),
-        start_time = COALESCE(${data.start_time ?? null}, start_time),
-        end_time = COALESCE(${data.end_time ?? null}, end_time)
-      WHERE id = ${id}
-      RETURNING *
-    `;
-    if (!updated) return null;
+    const hasFieldChanges =
+      data.project_id !== undefined ||
+      data.description !== undefined ||
+      data.start_time !== undefined ||
+      data.end_time !== undefined;
 
+    if (!hasFieldChanges && data.label_ids === undefined) return null;
+
+    if (hasFieldChanges) {
+      const [updated] = await tx<TimeEntry[]>`
+        UPDATE time_entries SET
+          project_id = ${data.project_id !== undefined ? sql`${data.project_id}` : sql`project_id`},
+          description = ${data.description !== undefined ? sql`${data.description}` : sql`description`},
+          start_time = ${data.start_time !== undefined ? sql`${data.start_time}` : sql`start_time`},
+          end_time = ${data.end_time !== undefined ? sql`${data.end_time}` : sql`end_time`}
+        WHERE id = ${id}
+        RETURNING *
+      `;
+         if (!updated) return null;
+    }
     if (data.label_ids !== undefined) {
       await tx`DELETE FROM time_entry_labels WHERE time_entry_id = ${id}`;
       if (data.label_ids.length > 0) {
