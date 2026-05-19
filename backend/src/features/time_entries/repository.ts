@@ -76,13 +76,11 @@ export async function create(data: {
     `;
 
     if (data.label_ids && data.label_ids.length > 0) {
-      for (const labelId of data.label_ids) {
-        await tx`
-          INSERT INTO time_entry_labels (time_entry_id, label_id)
-          VALUES (${entry.id}, ${labelId})
-          ON CONFLICT DO NOTHING
-        `;
-      }
+      await tx`
+        INSERT INTO time_entry_labels (time_entry_id, label_id)
+        SELECT ${entry.id}, unnest(${data.label_ids}::int[])
+        ON CONFLICT DO NOTHING
+      `;
     }
 
     const result = await tx<TimeEntry[]>`
@@ -124,18 +122,16 @@ export async function update(
         WHERE id = ${id}
         RETURNING *
       `;
-         if (!updated) return null;
+      if (!updated) return null;
     }
     if (data.label_ids !== undefined) {
       await tx`DELETE FROM time_entry_labels WHERE time_entry_id = ${id}`;
       if (data.label_ids.length > 0) {
-        for (const labelId of data.label_ids) {
-          await tx`
-            INSERT INTO time_entry_labels (time_entry_id, label_id)
-            VALUES (${id}, ${labelId})
-            ON CONFLICT DO NOTHING
-          `;
-        }
+        await tx`
+          INSERT INTO time_entry_labels (time_entry_id, label_id)
+          SELECT ${id}, unnest(${data.label_ids}::int[])
+          ON CONFLICT DO NOTHING
+        `;
       }
     }
 
