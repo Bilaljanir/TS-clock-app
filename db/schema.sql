@@ -18,7 +18,7 @@ CREATE TABLE IF NOT EXISTS labels (
 -- Create time_entries table
 CREATE TABLE IF NOT EXISTS time_entries (
     id SERIAL PRIMARY KEY,
-    project_id INTEGER REFERENCES projects(id) ON DELETE SET NULL,
+    project_id INTEGER NOT NULL REFERENCES projects(id) ON DELETE RESTRICT,
     description TEXT,
     start_time TIMESTAMP WITH TIME ZONE NOT NULL,
     end_time TIMESTAMP WITH TIME ZONE,

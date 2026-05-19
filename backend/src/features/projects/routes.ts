@@ -38,6 +38,14 @@ export const projectsRoutes = new Elysia({ prefix: "/api/projects" })
   })
 
   .delete("/:id", async ({ params: { id }, set }) => {
+    const entryCount = await repo.findTimeEntryCount(id);
+
+    if (entryCount > 0) {
+      set.status = 409;
+      return {
+        message: "Cannott delete project with associated time entries",
+      };
+    }
     const project = await repo.remove(id);
 
     if (!project) {

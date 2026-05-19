@@ -38,6 +38,12 @@ export async function update(
   return project ?? null;
 }
 
+export async function findTimeEntryCount(id: number): Promise<number> {
+  const [{ count }] = await sql<{ count: number }[]>`
+    SELECT COUNT(*)::int AS count FROM time_entries WHERE project_id = ${id}
+  `;
+  return count;
+}
 export async function remove(id: number): Promise<Project | null> {
   const [project] = await sql<Project[]>`
     DELETE FROM projects WHERE id = ${id}
