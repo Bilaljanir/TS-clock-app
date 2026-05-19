@@ -1,24 +1,18 @@
 import { Elysia, t } from "elysia";
+import { NotFoundError } from "../../errors";
 import * as repo from "./repository";
 import { CreateTimeEntrySchema, UpdateTimeEntrySchema } from "./schema";
 
 export const timeEntriesRoutes = new Elysia({ prefix: "/api/time-entries" })
-  .onError(({ code, error }) => {
-    if (code === "NOT_FOUND") return;
-    console.error(error);
-  })
 
   .get("/", async () => {
     return await repo.findAll();
   })
 
-  .get("/:id", async ({ params: { id }, set }) => {
+  .get("/:id", async ({ params: { id } }) => {
     const entry = await repo.findById(id);
 
-    if (!entry) {
-      set.status = 404;
-      return { message: "Time entry not found" };
-    }
+    if (!entry) throw new NotFoundError("Time entry");
 
     return entry;
   }, {
@@ -45,23 +39,17 @@ export const timeEntriesRoutes = new Elysia({ prefix: "/api/time-entries" })
 
     const entry = await repo.update(id, body);
 
-    if (!entry) {
-      set.status = 404;
-      return { message: "Time entry not found" };
-    }
+    if (!entry) throw new NotFoundError("Time entry");
 
     return entry;
   }, {
     params: t.Object({ id: t.Numeric() }),
     body: UpdateTimeEntrySchema,
   })
-  .delete("/:id", async ({ params: { id }, set }) => {
+  .delete("/:id", async ({ params: { id } }) => {
     const entry = await repo.remove(id);
 
-    if (!entry) {
-      set.status = 404;
-      return { message: "Time entry not found" };
-    }
+    if (!entry) throw new NotFoundError("Time entry");
 
     return { message: "Time entry deleted", entry };
   }, {
