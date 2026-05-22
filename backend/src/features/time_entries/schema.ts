@@ -32,6 +32,26 @@ export const CreateTimeEntrySchema = v.pipe(
   }),
 );
 
+export const ClockInSchema = v.object({
+  project_id: v.pipe(v.number(), v.integer(), v.minValue(1)),
+  description: v.optional(v.nullable(v.string())),
+  label_ids: v.optional(
+    v.array(v.pipe(v.number(), v.integer(), v.minValue(1))),
+  ),
+});
+
+export const ClockOutSchema = v.object({
+  description: v.optional(v.nullable(v.string())),
+});
+
+export const ClockSwitchSchema = v.object({
+  project_id: v.optional(v.pipe(v.number(), v.integer(), v.minValue(1))),
+  description: v.optional(v.nullable(v.string())),
+  label_ids: v.optional(
+    v.array(v.pipe(v.number(), v.integer(), v.minValue(1))),
+  ),
+});
+
 export const UpdateTimeEntrySchema = v.pipe(
   v.object({
     project_id: v.optional(v.pipe(v.number(), v.integer(), v.minValue(1))),

@@ -14,7 +14,7 @@ export type TimeEntry = {
   labels?: Pick<Label, "id" | "name" | "color">[];
 };
 
-const ENTRY_SELECT = `
+const entrySelect = sql`
   te.id,
   te.project_id,
   te.description,
@@ -32,7 +32,7 @@ const ENTRY_SELECT = `
   ) AS labels
 `;
 
-const ENTRY_FROM = `
+const entryFrom = sql`
   FROM time_entries te
   LEFT JOIN projects p ON p.id = te.project_id
   LEFT JOIN time_entry_labels tel ON tel.time_entry_id = te.id
@@ -47,6 +47,24 @@ export type PaginatedResult<T> = {
 };
 
 const SORTABLE_COLUMNS = new Set(["created_at", "start_time", "end_time", "description", "id"]);
+
+type Queryable = {
+  <T extends any[]>(strings: TemplateStringsArray, ...values: any[]): Promise<T>;
+};
+
+async function getEntryById(conn: Queryable, id: number): Promise<TimeEntry | null> {
+  const [result] = await conn<TimeEntry[]>`
+    SELECT ${entrySelect}
+    ${entryFrom}
+    WHERE te.id = ${id}
+    GROUP BY te.id, p.id, p.name
+  `;
+  return result ?? null;
+}
+
+export async function findById(id: number): Promise<TimeEntry | null> {
+  return getEntryById(sql, id);
+}
 
 export async function findAll(
   page: number = 1,
@@ -63,23 +81,26 @@ export async function findAll(
     SELECT COUNT(*)::int AS count
     FROM time_entries`;
 
+  const sortDir = sortOrder === "desc" ? sql`DESC` : sql`ASC`;
+
   const data = await sql<TimeEntry[]>`
-    SELECT ${sql(ENTRY_SELECT)}
-    ${sql(ENTRY_FROM)}
+    SELECT ${entrySelect}
+    ${entryFrom}
     GROUP BY te.id, p.id, p.name
-    ORDER BY te.${sql(sortBy)} ${sql(sortOrder === "desc" ? "DESC" : "ASC")}
+    ORDER BY te.${sql(sortBy)} ${sortDir}
     LIMIT ${pageSize}
     OFFSET ${offset}`;
 
   return { data, page, pageSize, total: count };
 }
 
-export async function findById(id: number): Promise<TimeEntry | null> {
+export async function findActive(): Promise<TimeEntry | null> {
   const [entry] = await sql<TimeEntry[]>`
-    SELECT ${sql(ENTRY_SELECT)}
-    ${sql(ENTRY_FROM)}
-    WHERE te.id = ${id}
+    SELECT ${entrySelect}
+    ${entryFrom}
+    WHERE te.end_time IS NULL
     GROUP BY te.id, p.id, p.name
+    LIMIT 1
   `;
   return entry ?? null;
 }
@@ -103,7 +124,7 @@ export async function create(data: {
       RETURNING *
     `;
 
-    if (data.label_ids && data.label_ids.length > 0) {
+    if (data.label_ids?.length) {
       await tx`
         INSERT INTO time_entry_labels (time_entry_id, label_id)
         SELECT ${entry.id}, unnest(${data.label_ids}::int[])
@@ -111,13 +132,7 @@ export async function create(data: {
       `;
     }
 
-    const result = await tx<TimeEntry[]>`
-      SELECT ${sql(ENTRY_SELECT)}
-      ${sql(ENTRY_FROM)}
-      WHERE te.id = ${entry.id}
-      GROUP BY te.id, p.id, p.name
-    `;
-    return result[0]!;
+    return (await getEntryById(tx, entry.id))!;
   });
 }
 
@@ -139,8 +154,7 @@ export async function update(
       data.end_time !== undefined;
 
     if (!hasFieldChanges && data.label_ids === undefined) {
-      const [existing] = await tx<TimeEntry[]>`SELECT ${sql(ENTRY_SELECT)} ${sql(ENTRY_FROM)} WHERE te.id = ${id} GROUP BY te.id, p.id, p.name`;
-      return existing ?? null;
+      return getEntryById(tx, id);
     }
 
     if (hasFieldChanges) {
@@ -155,10 +169,11 @@ export async function update(
       `;
       if (!updated) return null;
     }
+
     if (data.label_ids !== undefined) {
       await tx`DELETE FROM time_entry_labels WHERE time_entry_id = ${id}`;
       if (data.label_ids.length > 0) {
-          await tx`
+        await tx`
           INSERT INTO time_entry_labels (time_entry_id, label_id)
           SELECT ${id}, unnest(${data.label_ids}::int[])
           ON CONFLICT DO NOTHING
@@ -166,13 +181,95 @@ export async function update(
       }
     }
 
-    const result = await tx<TimeEntry[]>`
-      SELECT ${sql(ENTRY_SELECT)}
-      ${sql(ENTRY_FROM)}
-      WHERE te.id = ${id}
-      GROUP BY te.id, p.id, p.name
+    return getEntryById(tx, id);
+  });
+}
+
+export async function clockIn(data: {
+  project_id: number;
+  description?: string | null;
+  label_ids?: number[];
+}): Promise<TimeEntry> {
+  return await sql.begin(async (tx) => {
+    const [entry] = await tx<TimeEntry[]>`
+      INSERT INTO time_entries (project_id, description, start_time, end_time)
+      VALUES (${data.project_id}, ${data.description ?? null}, NOW(), NULL)
+      RETURNING *
     `;
-    return result[0] ?? null;
+
+    if (data.label_ids?.length) {
+      await tx`
+        INSERT INTO time_entry_labels (time_entry_id, label_id)
+        SELECT ${entry.id}, unnest(${data.label_ids}::int[])
+        ON CONFLICT DO NOTHING
+      `;
+    }
+
+    return (await getEntryById(tx, entry.id))!;
+  });
+}
+
+export async function clockOut(description?: string | null): Promise<TimeEntry | null> {
+  return await sql.begin(async (tx) => {
+    const [entry] = await tx<TimeEntry[]>`
+      UPDATE time_entries SET
+        end_time = NOW(),
+        description = COALESCE(${description ?? null}, description)
+      WHERE end_time IS NULL
+      RETURNING *
+    `;
+    if (!entry) return null;
+
+    return getEntryById(tx, entry.id);
+  });
+}
+
+export async function clockSwitch(data: {
+  project_id?: number;
+  description?: string | null;
+  label_ids?: number[];
+}): Promise<{ previous: TimeEntry; current: TimeEntry } | null> {
+  return await sql.begin(async (tx) => {
+    const [active] = await tx<TimeEntry[]>`
+      SELECT ${entrySelect}
+      ${entryFrom}
+      WHERE te.end_time IS NULL
+      GROUP BY te.id, p.id, p.name
+      LIMIT 1
+    `;
+    if (!active) return null;
+
+    await tx`
+      UPDATE time_entries SET end_time = NOW() WHERE id = ${active.id}
+    `;
+
+    const projectId: number = data.project_id ?? (active.project_id as number);
+    const desc = data.description !== undefined ? data.description : active.description;
+
+    const [next] = await tx<TimeEntry[]>`
+      INSERT INTO time_entries (project_id, description, start_time, end_time)
+      VALUES (${projectId}, ${desc ?? null}, NOW(), NULL)
+      RETURNING *
+    `;
+
+    const labelIds = data.label_ids ?? (
+      await tx<{ label_id: number }[]>`
+        SELECT label_id FROM time_entry_labels WHERE time_entry_id = ${active.id}
+      `
+    ).map((r) => r.label_id);
+
+    if (labelIds.length > 0) {
+      await tx`
+        INSERT INTO time_entry_labels (time_entry_id, label_id)
+        SELECT ${next.id}, unnest(${labelIds}::int[])
+        ON CONFLICT DO NOTHING
+      `;
+    }
+
+    return {
+      previous: (await getEntryById(tx, active.id))!,
+      current: (await getEntryById(tx, next.id))!,
+    };
   });
 }
 
