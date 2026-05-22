@@ -39,13 +39,39 @@ const ENTRY_FROM = `
   LEFT JOIN labels l ON l.id = tel.label_id
 `;
 
-export async function findAll(): Promise<TimeEntry[]> {
-  return await sql<TimeEntry[]>`
+export type PaginatedResult<T> = {
+  data: T[];
+  page: number;
+  pageSize: number;
+  total: number;
+};
+
+const SORTABLE_COLUMNS = new Set(["created_at", "start_time", "end_time", "description", "id"]);
+
+export async function findAll(
+  page: number = 1,
+  pageSize: number = 20,
+  sortBy: string = "created_at",
+  sortOrder: string = "desc",
+): Promise<PaginatedResult<TimeEntry>> {
+  if (!SORTABLE_COLUMNS.has(sortBy)) sortBy = "created_at";
+  if (sortOrder !== "asc" && sortOrder !== "desc") sortOrder = "desc";
+
+  const offset = (page - 1) * pageSize;
+
+  const [{ count }] = await sql<{ count: number }[]>`
+    SELECT COUNT(*)::int AS count
+    FROM time_entries`;
+
+  const data = await sql<TimeEntry[]>`
     SELECT ${sql(ENTRY_SELECT)}
     ${sql(ENTRY_FROM)}
     GROUP BY te.id, p.id, p.name
-    ORDER BY te.created_at DESC
-  `;
+    ORDER BY te.${sql(sortBy)} ${sql(sortOrder === "desc" ? "DESC" : "ASC")}
+    LIMIT ${pageSize}
+    OFFSET ${offset}`;
+
+  return { data, page, pageSize, total: count };
 }
 
 export async function findById(id: number): Promise<TimeEntry | null> {
@@ -78,12 +104,11 @@ export async function create(data: {
     `;
 
     if (data.label_ids && data.label_ids.length > 0) {
-      for (const labelId of data.label_ids) {
-          await tx`
-              INSERT INTO time_entry_labels (time_entry_id, label_id)
-              SELECT ${entry.id}, unnest(${data.label_ids}::int[])
-                  ON CONFLICT DO NOTHING
-          `;}
+      await tx`
+        INSERT INTO time_entry_labels (time_entry_id, label_id)
+        SELECT ${entry.id}, unnest(${data.label_ids}::int[])
+        ON CONFLICT DO NOTHING
+      `;
     }
 
     const result = await tx<TimeEntry[]>`
