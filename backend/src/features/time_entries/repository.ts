@@ -39,6 +39,12 @@ const entryFrom = sql`
   LEFT JOIN labels l ON l.id = tel.label_id
 `;
 
+export type ClockResult = {
+  action: "in" | "out" | "switch";
+  entry: TimeEntry;
+  previous?: TimeEntry;
+};
+
 export type PaginatedResult<T> = {
   data: T[];
   page: number;
@@ -185,50 +191,11 @@ export async function update(
   });
 }
 
-export async function clockIn(data: {
-  project_id: number;
-  description?: string | null;
-  label_ids?: number[];
-}): Promise<TimeEntry> {
-  return await sql.begin(async (tx) => {
-    const [entry] = await tx<TimeEntry[]>`
-      INSERT INTO time_entries (project_id, description, start_time, end_time)
-      VALUES (${data.project_id}, ${data.description ?? null}, NOW(), NULL)
-      RETURNING *
-    `;
-
-    if (data.label_ids?.length) {
-      await tx`
-        INSERT INTO time_entry_labels (time_entry_id, label_id)
-        SELECT ${entry.id}, unnest(${data.label_ids}::int[])
-        ON CONFLICT DO NOTHING
-      `;
-    }
-
-    return (await getEntryById(tx, entry.id))!;
-  });
-}
-
-export async function clockOut(description?: string | null): Promise<TimeEntry | null> {
-  return await sql.begin(async (tx) => {
-    const [entry] = await tx<TimeEntry[]>`
-      UPDATE time_entries SET
-        end_time = NOW(),
-        description = COALESCE(${description ?? null}, description)
-      WHERE end_time IS NULL
-      RETURNING *
-    `;
-    if (!entry) return null;
-
-    return getEntryById(tx, entry.id);
-  });
-}
-
-export async function clockSwitch(data: {
+export async function clock(data: {
   project_id?: number;
   description?: string | null;
   label_ids?: number[];
-}): Promise<{ previous: TimeEntry; current: TimeEntry } | null> {
+}): Promise<ClockResult> {
   return await sql.begin(async (tx) => {
     const [active] = await tx<TimeEntry[]>`
       SELECT ${entrySelect}
@@ -237,42 +204,60 @@ export async function clockSwitch(data: {
       GROUP BY te.id, p.id, p.name
       LIMIT 1
     `;
-    if (!active) return null;
 
-    await tx`
-      UPDATE time_entries SET end_time = NOW() WHERE id = ${active.id}
-    `;
-
-    const projectId: number = data.project_id ?? (active.project_id as number);
-    const desc = data.description !== undefined ? data.description : active.description;
-
-    const [next] = await tx<TimeEntry[]>`
-      INSERT INTO time_entries (project_id, description, start_time, end_time)
-      VALUES (${projectId}, ${desc ?? null}, NOW(), NULL)
-      RETURNING *
-    `;
-
-    const labelIds = data.label_ids ?? (
-      await tx<{ label_id: number }[]>`
-        SELECT label_id FROM time_entry_labels WHERE time_entry_id = ${active.id}
-      `
-    ).map((r) => r.label_id);
-
-    if (labelIds.length > 0) {
-      await tx`
-        INSERT INTO time_entry_labels (time_entry_id, label_id)
-        SELECT ${next.id}, unnest(${labelIds}::int[])
-        ON CONFLICT DO NOTHING
+    if (!active) {
+      if (!data.project_id) throw new Error("project_id is required to clock in");
+      const [entry] = await tx<TimeEntry[]>`
+        INSERT INTO time_entries (project_id, description, start_time, end_time)
+        VALUES (${data.project_id}, ${data.description ?? null}, NOW(), NULL)
+        RETURNING *
       `;
+      if (data.label_ids?.length) {
+        await tx`
+          INSERT INTO time_entry_labels (time_entry_id, label_id)
+          SELECT ${entry.id}, unnest(${data.label_ids}::int[])
+          ON CONFLICT DO NOTHING
+        `;
+      }
+      return { action: "in", entry: (await getEntryById(tx, entry.id))! } as const;
     }
 
-    return {
-      previous: (await getEntryById(tx, active.id))!,
-      current: (await getEntryById(tx, next.id))!,
-    };
+    const hasChanges = data.project_id !== undefined
+      || data.description !== undefined
+      || data.label_ids !== undefined;
+
+    if (hasChanges) {
+      await tx`UPDATE time_entries SET end_time = NOW() WHERE id = ${active.id}`;
+      const projectId: number = data.project_id ?? (active.project_id as number);
+      const desc = data.description !== undefined ? data.description : active.description;
+      const [next] = await tx<TimeEntry[]>`
+        INSERT INTO time_entries (project_id, description, start_time, end_time)
+        VALUES (${projectId}, ${desc ?? null}, NOW(), NULL) RETURNING *
+      `;
+      const labelIds = data.label_ids ?? (
+        await tx<{ label_id: number }[]>
+          `SELECT label_id FROM time_entry_labels WHERE time_entry_id = ${active.id}`
+      ).map((r) => r.label_id);
+      if (labelIds.length > 0) {
+        await tx`
+          INSERT INTO time_entry_labels (time_entry_id, label_id)
+          SELECT ${next.id}, unnest(${labelIds}::int[]) ON CONFLICT DO NOTHING
+        `;
+      }
+      return {
+        action: "switch",
+        previous: (await getEntryById(tx, active.id))!,
+        entry: (await getEntryById(tx, next.id))!,
+      } as const;
+    }
+    await tx<TimeEntry[]>`
+      UPDATE time_entries SET end_time = NOW(),
+        description = COALESCE(${data.description ?? null}, description)
+      WHERE id = ${active.id}
+    `;
+    return { action: "out", entry: (await getEntryById(tx, active.id))! } as const;
   });
 }
-
 export async function remove(id: number): Promise<TimeEntry | null> {
   const [entry] = await sql<TimeEntry[]>`
     DELETE FROM time_entries WHERE id = ${id}
