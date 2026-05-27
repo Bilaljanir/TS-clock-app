@@ -1,9 +1,7 @@
 import { Elysia, t } from "elysia";
-import { NotFoundError } from "../../errors";
+import { BadRequestError, NotFoundError } from "../../errors";
 import * as repo from "./repository";
 import { ClockSchema, CreateTimeEntrySchema, UpdateTimeEntrySchema } from "./schema";
-
-const SORTABLE_COLUMNS = new Set(["created_at", "start_time", "end_time", "description", "id"] as const) as Set<string>;
 
 export const timeEntriesRoutes = new Elysia({ prefix: "/api/time-entries" })
 
@@ -12,16 +10,12 @@ export const timeEntriesRoutes = new Elysia({ prefix: "/api/time-entries" })
             set.status = 400;
             return { message: "page must be >= 1 and pageSize must be between 1 and 100" };
         }
-        if (!SORTABLE_COLUMNS.has(sortBy)) {
-            set.status = 400;
-            return { message: `sortBy must be one of: ${[...SORTABLE_COLUMNS].join(", ")}` };
-        }
         return await repo.findAll(page, pageSize, sortBy, sortOrder);
     }, {
         query: t.Object({
             page: t.Optional(t.Numeric()),
             pageSize: t.Optional(t.Numeric()),
-            sortBy: t.Optional(t.String()),
+            sortBy: t.Optional(t.Union([t.Literal("created_at"), t.Literal("start_time"), t.Literal("end_time"), t.Literal("description"), t.Literal("id")])),
             sortOrder: t.Optional(t.Union([t.Literal("asc"), t.Literal("desc")])),
         }),
     })
@@ -30,7 +24,9 @@ export const timeEntriesRoutes = new Elysia({ prefix: "/api/time-entries" })
         try {
             return await repo.clock(body);
         } catch (e: any) {
-            set.status = e.message?.includes("project_id") ? 400 : 404;
+            if (e instanceof BadRequestError) set.status = 400;
+            else if (e instanceof NotFoundError) set.status = 404;
+            else throw e;
             return { message: e.message };
         }
     }, {
