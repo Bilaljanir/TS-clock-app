@@ -1,3 +1,4 @@
+import { cors } from "@elysiajs/cors";
 import { Elysia } from "elysia";
 import { NotFoundError } from "./errors";
 import { projectsRoutes } from "./features/projects/routes";
@@ -13,6 +14,7 @@ const PG_CONSTRAINT_MESSAGES: Record<string, string> = {
 };
 
 const app = new Elysia()
+  .use(cors())
   .onError(({ code, error, set }) => {
     if (code === "NOT_FOUND") return;
     if (code === "VALIDATION") return;
