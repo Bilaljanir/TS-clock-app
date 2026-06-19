@@ -1,7 +1,7 @@
 import { Elysia, t } from "elysia";
 import { NotFoundError } from "../../errors";
 import * as repo from "./repository";
-import { CreateTimeEntrySchema, UpdateTimeEntrySchema } from "./schema";
+import { ClockSchema, CreateTimeEntrySchema, UpdateTimeEntrySchema } from "./schema";
 
 export const timeEntriesRoutes = new Elysia({ prefix: "/api/time-entries" })
 
@@ -28,6 +28,12 @@ export const timeEntriesRoutes = new Elysia({ prefix: "/api/time-entries" })
     return await repo.create(body);
   }, {
     body: CreateTimeEntrySchema,
+  })
+
+  .post("/clock", async ({ body }) => {
+    return await repo.clock(body);
+  }, {
+    body: ClockSchema,
   })
 
   .put("/:id", async ({ params: { id }, body }) => {

@@ -181,6 +181,39 @@ export async function update(
   });
 }
 
+export async function clock(data: {
+  project_id?: number;
+  label_ids?: number[];
+}): Promise<{ closed: TimeEntry | null; active: TimeEntry | null }> {
+  return await sql.begin(async (tx) => {
+    const [closed] = await tx<TimeEntry[]>`
+      UPDATE time_entries SET end_time = now()
+      WHERE end_time IS NULL
+      RETURNING *
+    `;
+
+    if (data.project_id === undefined) {
+      return { closed: closed ?? null, active: null };
+    }
+
+    const [active] = await tx<TimeEntry[]>`
+      INSERT INTO time_entries (project_id, start_time, end_time)
+      VALUES (${data.project_id}, now(), NULL)
+      RETURNING *
+    `;
+
+    if (data.label_ids && data.label_ids.length > 0) {
+      await tx`
+        INSERT INTO time_entry_labels (time_entry_id, label_id)
+        SELECT ${active.id}, unnest(${data.label_ids}::int[])
+        ON CONFLICT DO NOTHING
+      `;
+    }
+
+    return { closed: closed ?? null, active };
+  });
+}
+
 export async function remove(id: number): Promise<TimeEntry | null> {
   const [entry] = await sql<TimeEntry[]>`
     DELETE FROM time_entries WHERE id = ${id}
