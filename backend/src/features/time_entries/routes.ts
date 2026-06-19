@@ -5,8 +5,13 @@ import { CreateTimeEntrySchema, UpdateTimeEntrySchema } from "./schema";
 
 export const timeEntriesRoutes = new Elysia({ prefix: "/api/time-entries" })
 
-  .get("/", async () => {
-    return await repo.findAll();
+  .get("/", async ({ query }) => {
+    return await repo.findAll(query.page, query.pageSize);
+  }, {
+    query: t.Object({
+      page: t.Optional(t.Numeric({ minimum: 1, default: 1 })),
+      pageSize: t.Optional(t.Numeric({ minimum: 1, maximum: 100, default: 20 })),
+    }),
   })
 
   .get("/:id", async ({ params: { id } }) => {

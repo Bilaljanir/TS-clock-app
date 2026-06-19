@@ -39,13 +39,43 @@ const ENTRY_FROM = `
   LEFT JOIN labels l ON l.id = tel.label_id
 `;
 
-export async function findAll(): Promise<TimeEntry[]> {
-  return await sql<TimeEntry[]>`
-    SELECT ${sql(ENTRY_SELECT)}
-    ${sql(ENTRY_FROM)}
+export type PaginatedResult<T> = {
+  data: T[];
+  page: number;
+  pageSize: number;
+  total: number;
+  totalPages: number;
+};
+
+export async function findAll(
+  page = 1,
+  pageSize = 20,
+): Promise<PaginatedResult<TimeEntry>> {
+  const offset = (page - 1) * pageSize;
+
+  const [{ count }] = await sql<{ count: number }[]>`
+    SELECT COUNT(*)::int AS count FROM time_entries
+  `;
+
+  const data = await sql.unsafe<TimeEntry[]>(
+    `
+    SELECT ${ENTRY_SELECT}
+    ${ENTRY_FROM}
     GROUP BY te.id, p.id, p.name
     ORDER BY te.created_at DESC
-  `;
+    LIMIT $1
+    OFFSET $2
+    `,
+    [pageSize, offset],
+  );
+
+  return {
+    data,
+    page,
+    pageSize,
+    total: count,
+    totalPages: Math.ceil(count / pageSize),
+  };
 }
 
 export async function findById(id: number): Promise<TimeEntry | null> {
