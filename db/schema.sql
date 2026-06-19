@@ -40,6 +40,9 @@ CREATE INDEX IF NOT EXISTS idx_time_entries_start_time ON time_entries(start_tim
 CREATE INDEX IF NOT EXISTS idx_time_entries_end_time ON time_entries(end_time);
 CREATE INDEX IF NOT EXISTS idx_time_entry_labels_label_id ON time_entry_labels(label_id);
 
+-- At most one running (end_time IS NULL) time entry at a time
+CREATE UNIQUE INDEX IF NOT EXISTS idx_time_entries_one_active ON time_entries ((1)) WHERE end_time IS NULL;
+
 -- Updated_at trigger function
 CREATE OR REPLACE FUNCTION update_updated_at_column()
 RETURNS TRIGGER AS $$
