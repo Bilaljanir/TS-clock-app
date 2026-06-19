@@ -1,4 +1,5 @@
 import { Elysia } from "elysia";
+import { NotFoundError } from "./errors";
 import { projectsRoutes } from "./features/projects/routes";
 import { labelsRoutes } from "./features/labels/routes";
 import { timeEntriesRoutes } from "./features/time_entries/routes";
@@ -15,6 +16,11 @@ const app = new Elysia()
   .onError(({ code, error, set }) => {
     if (code === "NOT_FOUND") return;
     if (code === "VALIDATION") return;
+
+    if (error instanceof NotFoundError) {
+      set.status = 404;
+      return { message: error.message };
+    }
 
     if (
       error &&

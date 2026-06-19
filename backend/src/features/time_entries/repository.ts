@@ -79,12 +79,15 @@ export async function findAll(
 }
 
 export async function findById(id: number): Promise<TimeEntry | null> {
-  const [entry] = await sql<TimeEntry[]>`
-    SELECT ${sql(ENTRY_SELECT)}
-    ${sql(ENTRY_FROM)}
-    WHERE te.id = ${id}
+  const [entry] = await sql.unsafe<TimeEntry[]>(
+    `
+    SELECT ${ENTRY_SELECT}
+    ${ENTRY_FROM}
+    WHERE te.id = $1
     GROUP BY te.id, p.id, p.name
-  `;
+    `,
+    [id],
+  );
   return entry ?? null;
 }
 
@@ -108,20 +111,22 @@ export async function create(data: {
     `;
 
     if (data.label_ids && data.label_ids.length > 0) {
-      for (const labelId of data.label_ids) {
-          await tx`
-              INSERT INTO time_entry_labels (time_entry_id, label_id)
-              SELECT ${entry.id}, unnest(${data.label_ids}::int[])
-                  ON CONFLICT DO NOTHING
-          `;}
+      await tx`
+        INSERT INTO time_entry_labels (time_entry_id, label_id)
+        SELECT ${entry.id}, unnest(${data.label_ids}::int[])
+        ON CONFLICT DO NOTHING
+      `;
     }
 
-    const result = await tx<TimeEntry[]>`
-      SELECT ${sql(ENTRY_SELECT)}
-      ${sql(ENTRY_FROM)}
-      WHERE te.id = ${entry.id}
+    const result = await tx.unsafe<TimeEntry[]>(
+      `
+      SELECT ${ENTRY_SELECT}
+      ${ENTRY_FROM}
+      WHERE te.id = $1
       GROUP BY te.id, p.id, p.name
-    `;
+      `,
+      [entry.id],
+    );
     return result[0]!;
   });
 }
@@ -144,7 +149,10 @@ export async function update(
       data.end_time !== undefined;
 
     if (!hasFieldChanges && data.label_ids === undefined) {
-      const [existing] = await tx<TimeEntry[]>`SELECT ${sql(ENTRY_SELECT)} ${sql(ENTRY_FROM)} WHERE te.id = ${id} GROUP BY te.id, p.id, p.name`;
+      const [existing] = await tx.unsafe<TimeEntry[]>(
+        `SELECT ${ENTRY_SELECT} ${ENTRY_FROM} WHERE te.id = $1 GROUP BY te.id, p.id, p.name`,
+        [id],
+      );
       return existing ?? null;
     }
 
@@ -171,12 +179,15 @@ export async function update(
       }
     }
 
-    const result = await tx<TimeEntry[]>`
-      SELECT ${sql(ENTRY_SELECT)}
-      ${sql(ENTRY_FROM)}
-      WHERE te.id = ${id}
+    const result = await tx.unsafe<TimeEntry[]>(
+      `
+      SELECT ${ENTRY_SELECT}
+      ${ENTRY_FROM}
+      WHERE te.id = $1
       GROUP BY te.id, p.id, p.name
-    `;
+      `,
+      [id],
+    );
     return result[0] ?? null;
   });
 }
