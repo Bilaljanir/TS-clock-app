@@ -1,52 +1,46 @@
 import { cors } from "@elysiajs/cors";
 import { Elysia } from "elysia";
-import { NotFoundError } from "./errors";
-import { projectsRoutes } from "./features/projects/routes";
-import { labelsRoutes } from "./features/labels/routes";
-import { timeEntriesRoutes } from "./features/time_entries/routes";
+import { clockRoutes } from "./features/clock/clock.routes";
+import { entriesRoutes } from "./features/entries/entries.routes";
+import { labelsRoutes } from "./features/labels/labels.routes";
+import { projectsRoutes } from "./features/projects/projects.routes";
+import { AppError, type ErrorBody } from "./lib/errors";
 
-const PG_CONSTRAINT_CODES = new Set(["23503", "23505", "23514"]);
-
-const PG_CONSTRAINT_MESSAGES: Record<string, string> = {
-  "23503": "Referenced resource does not exist",
-  "23505": "Resource already exists",
-  "23514": "Database constraint violation",
-};
+// CORS promu en scope global pour s'appliquer à TOUS les routers
+// (sinon les hooks ne se propagent pas de façon fiable aux sous-instances).
+const corsPlugin = new Elysia({ name: "cors-global" }).use(cors()).as("global");
 
 const app = new Elysia()
-  .use(cors())
-  .onError(({ code, error, set }) => {
-    if (code === "NOT_FOUND") return;
-    if (code === "VALIDATION") return;
-
-    if (error instanceof NotFoundError) {
-      set.status = 404;
-      return { message: error.message };
+  .use(corsPlugin)
+  .onError(({ code, error, set }): ErrorBody => {
+    if (error instanceof AppError) {
+      set.status = error.status;
+      return error.toJSON();
     }
 
-    if (
-      error &&
-      typeof error === "object" &&
-      "code" in error &&
-      typeof (error as Record<string, unknown>).code === "string" &&
-      PG_CONSTRAINT_CODES.has((error as unknown as Record<string, string>).code)
-    ) {
+    if (code === "NOT_FOUND") {
+      set.status = 404;
+      return { error: { code: "NOT_FOUND", message: "Route introuvable." } };
+    }
+
+    if (code === "PARSE") {
       set.status = 400;
       return {
-        message:
-          PG_CONSTRAINT_MESSAGES[
-            (error as unknown as Record<string, string>).code
-          ] ?? "Constraint violation",
+        error: { code: "BAD_REQUEST", message: "Corps de requête JSON invalide." },
       };
     }
 
     console.error(error);
+    set.status = 500;
+    return {
+      error: { code: "INTERNAL", message: "Erreur interne du serveur." },
+    };
   })
+  .get("/", () => ({ status: "ok", service: "ts-clock-app-api" }))
   .use(projectsRoutes)
   .use(labelsRoutes)
-  .use(timeEntriesRoutes)
+  .use(entriesRoutes)
+  .use(clockRoutes)
   .listen(3000);
 
-console.log(
-  `🦊 Elysia is running at ${app.server?.hostname}:${app.server?.port}`
-);
+console.log(`🦊 API Elysia démarrée sur http://localhost:${app.server?.port}`);

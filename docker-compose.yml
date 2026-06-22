@@ -1,47 +1,22 @@
 services:
-  postgres:
-    image: postgres:18-alpine
-    container_name: ts-clock-app-db
+  db:
+    image: postgres:17-alpine
+    container_name: clock_db
+    restart: unless-stopped
     environment:
-      POSTGRES_USER: ${DB_USER:-postgres}
-      POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres}
-      POSTGRES_DB: ${DB_NAME:-ts_clock_app}
+      POSTGRES_USER: ${POSTGRES_USER:-clock}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-clock}
+      POSTGRES_DB: ${POSTGRES_DB:-clock}
     ports:
-      - "${DB_PORT:-5432}:5432"
+      - "${POSTGRES_PORT:-5432}:5432"
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - clock_pgdata:/var/lib/postgresql/data
+      - ./db:/docker-entrypoint-initdb.d:ro
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-postgres}"]
-      interval: 10s
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-clock} -d ${POSTGRES_DB:-clock}"]
+      interval: 5s
       timeout: 5s
       retries: 5
 
-  backend:
-    build:
-      context: ./backend
-      dockerfile: Dockerfile
-    container_name: ts-clock-app-backend
-    ports:
-      - "${BACKEND_PORT:-3001}:3000"
-    environment:
-      DB_USER: ${DB_USER:-postgres}
-      DB_PASSWORD: ${DB_PASSWORD:-postgres}
-      DB_NAME: ${DB_NAME:-ts_clock_app}
-      DB_HOST: postgres
-      DB_PORT: 5432
-    depends_on:
-      postgres:
-        condition: service_healthy
-
-  frontend:
-    build:
-      context: ./frontend
-      dockerfile: Dockerfile
-    container_name: ts-clock-app-frontend
-    ports:
-      - "${FRONTEND_PORT:-3000}:80"
-    depends_on:
-      - backend
-
 volumes:
-  postgres_data:
+  clock_pgdata:

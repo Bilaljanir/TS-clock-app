@@ -38,10 +38,8 @@ CREATE TABLE IF NOT EXISTS time_entry_labels (
 CREATE INDEX IF NOT EXISTS idx_time_entries_project_id ON time_entries(project_id);
 CREATE INDEX IF NOT EXISTS idx_time_entries_start_time ON time_entries(start_time);
 CREATE INDEX IF NOT EXISTS idx_time_entries_end_time ON time_entries(end_time);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_one_active_entry ON time_entries ((1)) WHERE end_time IS NULL;
 CREATE INDEX IF NOT EXISTS idx_time_entry_labels_label_id ON time_entry_labels(label_id);
-
--- At most one running (end_time IS NULL) time entry at a time
-CREATE UNIQUE INDEX IF NOT EXISTS idx_time_entries_one_active ON time_entries ((1)) WHERE end_time IS NULL;
 
 -- Updated_at trigger function
 CREATE OR REPLACE FUNCTION update_updated_at_column()
