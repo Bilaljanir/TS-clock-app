@@ -1,13 +1,11 @@
 import * as v from "valibot";
 
-/** Entier positif (id de projet / de label dans le corps JSON). */
 const idNumber = v.pipe(
   v.number("L'identifiant doit être un nombre."),
   v.integer("L'identifiant doit être un entier."),
   v.minValue(1, "L'identifiant doit être positif."),
 );
 
-/** Horodatage ISO 8601 -> Date. */
 const timestamp = v.pipe(
   v.string("La date/heure doit être une chaîne ISO 8601."),
   v.transform((value) => new Date(value)),
@@ -27,7 +25,6 @@ const description = v.nullish(
 
 const labelIds = v.optional(v.array(idNumber), []);
 
-/** Corps de POST /entries. */
 export const CreateEntrySchema = v.pipe(
   v.object({
     project_id: idNumber,
@@ -45,7 +42,6 @@ export const CreateEntrySchema = v.pipe(
   ),
 );
 
-/** Corps de PATCH /entries/:id — tous les champs optionnels, au moins un requis. */
 export const UpdateEntrySchema = v.pipe(
   v.object({
     project_id: v.optional(idNumber),

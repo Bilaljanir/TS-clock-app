@@ -6,11 +6,6 @@ const idNumber = v.pipe(
   v.minValue(1, "L'identifiant doit être positif."),
 );
 
-/**
- * Corps de PUT /clock — définit l'état souhaité de l'horloge :
- * - project_id = <id>   -> clock in / switch sur ce projet
- * - project_id = null   -> clock out
- */
 export const SetClockSchema = v.object({
   project_id: v.nullable(idNumber),
   label_ids: v.optional(v.array(idNumber), []),

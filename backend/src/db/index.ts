@@ -6,9 +6,4 @@ if (!process.env.DATABASE_URL) {
   );
 }
 
-/**
- * Client SQL partagé (Bun.SQL).
- * Utilisation : await sql`SELECT * FROM projects WHERE id = ${id}`
- * Les valeurs interpolées sont paramétrées automatiquement (anti-injection SQL).
- */
 export const sql = new SQL(process.env.DATABASE_URL);

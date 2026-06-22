@@ -8,7 +8,6 @@ import {
 } from "../entries/entries.service";
 import type { SetClockInput } from "./clock.model";
 
-/** Entrée actuellement en cours (end_time IS NULL), ou null si déconnecté. */
 export async function getActiveEntry(): Promise<EntryDetail | null> {
   const [row] = (await sql`
     SELECT id FROM time_entries WHERE end_time IS NULL
@@ -17,24 +16,15 @@ export async function getActiveEntry(): Promise<EntryDetail | null> {
   return row ? getEntry(row.id) : null;
 }
 
-/**
- * Définit l'état de l'horloge en une opération (clock in / switch / clock out).
- *
- * - project_id null  -> clock out : on ferme le segment actif éventuel.
- * - project_id défini -> clock in OU switch : on ferme le segment actif
- *   éventuel et on en ouvre un nouveau (close + open atomiques).
- */
 export async function setClock(
   input: SetClockInput,
 ): Promise<EntryDetail | null> {
-  // Clock out.
+
   if (input.project_id === null) {
     await sql`UPDATE time_entries SET end_time = now() WHERE end_time IS NULL`;
     return null;
   }
 
-  // Validation AVANT toute mutation : un switch vers un projet/label invalide
-  // ne doit pas fermer la session en cours.
   await assertProjectExists(input.project_id);
   await assertLabelsExist(input.label_ids);
 

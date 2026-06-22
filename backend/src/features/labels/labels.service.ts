@@ -11,7 +11,7 @@ export type Label = {
 };
 
 export async function listLabels(): Promise<Label[]> {
-  return (await sql`SELECT * FROM labels ORDER BY name ASC`) as Label[];
+  return [...((await sql`SELECT * FROM labels ORDER BY name ASC`) as Label[])];
 }
 
 export async function getLabel(id: number): Promise<Label> {
@@ -34,7 +34,7 @@ export async function updateLabel(
   id: number,
   input: UpdateLabelInput,
 ): Promise<Label> {
-  const current = await getLabel(id); // lève 404 si absent
+  const current = await getLabel(id);
 
   const name = input.name ?? current.name;
   const color = input.color ?? current.color;

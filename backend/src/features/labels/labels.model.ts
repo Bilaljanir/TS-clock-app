@@ -12,13 +12,11 @@ const color = v.pipe(
   v.regex(/^#[0-9a-fA-F]{6}$/, "La couleur doit être au format hexadécimal #RRGGBB."),
 );
 
-/** Corps de POST /labels — couleur optionnelle (#000000 par défaut). */
 export const CreateLabelSchema = v.object({
   name,
   color: v.optional(color, "#000000"),
 });
 
-/** Corps de PATCH /labels/:id — tous les champs optionnels, au moins un requis. */
 export const UpdateLabelSchema = v.pipe(
   v.object({
     name: v.optional(name),
