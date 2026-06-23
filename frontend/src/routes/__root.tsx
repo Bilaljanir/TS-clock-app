@@ -33,6 +33,12 @@ function RootComponent() {
 					>
 						Entrées
 					</Link>
+					<Link to="/projects" className={linkClass} activeProps={activeProps}>
+						Projets
+					</Link>
+					<Link to="/labels" className={linkClass} activeProps={activeProps}>
+						Labels
+					</Link>
 				</nav>
 			</header>
 
