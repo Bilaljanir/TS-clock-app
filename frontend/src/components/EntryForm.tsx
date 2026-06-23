@@ -1,14 +1,14 @@
-import { type FormEvent, useState } from "react";
-import { type EntryInput, type Label, type Project } from "../lib/api";
-import { parseApiError } from "../lib/formErrors";
+import { useActionState, useState } from "react";
+import type { EntryInput, Label, Project } from "../lib/api";
+import { type ParsedFormError, parseApiError } from "../lib/formErrors";
 import { ErrorMessage } from "./ErrorMessage";
 import { Field } from "./Field";
 
 export type EntryFormValues = {
 	project_id: number | "";
 	description: string;
-	start_time: string; // valeur
-	end_time: string; //  d'<input datetime-local>idem, "" si non renseigné
+	start_time: string;
+	end_time: string;
 	label_ids: number[];
 };
 
@@ -19,6 +19,8 @@ type Props = {
 	submitLabel: string;
 	onSubmit: (input: EntryInput) => Promise<void>;
 };
+
+const NO_ERROR: ParsedFormError = { fieldErrors: {}, generalError: null };
 
 function toApiInput(values: EntryFormValues): EntryInput {
 	return {
@@ -38,26 +40,18 @@ export function EntryForm({
 	onSubmit,
 }: Props) {
 	const [values, setValues] = useState<EntryFormValues>(initialValues);
-	const [errors, setErrors] = useState<Record<string, string>>({});
-	const [generalError, setGeneralError] = useState<string | null>(null);
-	const [submitting, setSubmitting] = useState(false);
 
-	async function handleSubmit(event: FormEvent) {
-		event.preventDefault();
-		setSubmitting(true);
-		setErrors({});
-		setGeneralError(null);
-
-		try {
-			await onSubmit(toApiInput(values));
-		} catch (error) {
-			const parsed = parseApiError(error);
-			setErrors(parsed.fieldErrors);
-			setGeneralError(parsed.generalError);
-		} finally {
-			setSubmitting(false);
-		}
-	}
+	const [errors, submitAction, isPending] = useActionState<ParsedFormError>(
+		async () => {
+			try {
+				await onSubmit(toApiInput(values));
+				return NO_ERROR;
+			} catch (error) {
+				return parseApiError(error);
+			}
+		},
+		NO_ERROR,
+	);
 
 	function toggleLabel(id: number) {
 		setValues((v) => ({
@@ -69,10 +63,10 @@ export function EntryForm({
 	}
 
 	return (
-		<form onSubmit={handleSubmit} className="max-w-lg space-y-5">
-			<ErrorMessage error={generalError} />
+		<form action={submitAction} className="max-w-lg space-y-5">
+			<ErrorMessage error={errors.generalError} />
 
-			<Field label="Projet" error={errors.project_id}>
+			<Field label="Projet" error={errors.fieldErrors.project_id}>
 				<select
 					value={values.project_id}
 					onChange={(e) =>
@@ -92,7 +86,7 @@ export function EntryForm({
 				</select>
 			</Field>
 
-			<Field label="Description" error={errors.description}>
+			<Field label="Description" error={errors.fieldErrors.description}>
 				<textarea
 					value={values.description}
 					onChange={(e) =>
@@ -104,7 +98,7 @@ export function EntryForm({
 			</Field>
 
 			<div className="flex gap-4">
-				<Field label="Début" error={errors.start_time}>
+				<Field label="Début" error={errors.fieldErrors.start_time}>
 					<input
 						type="datetime-local"
 						value={values.start_time}
@@ -114,7 +108,7 @@ export function EntryForm({
 						className="w-full rounded border border-gray-300 px-3 py-2"
 					/>
 				</Field>
-				<Field label="Fin (optionnel)" error={errors.end_time}>
+				<Field label="Fin (optionnel)" error={errors.fieldErrors.end_time}>
 					<input
 						type="datetime-local"
 						value={values.end_time}
@@ -126,7 +120,7 @@ export function EntryForm({
 				</Field>
 			</div>
 
-			<Field label="Labels" error={errors.label_ids}>
+			<Field label="Labels" error={errors.fieldErrors.label_ids}>
 				<div className="flex flex-wrap gap-3">
 					{labels.length === 0 && (
 						<span className="text-sm text-gray-400">
@@ -152,10 +146,10 @@ export function EntryForm({
 
 			<button
 				type="submit"
-				disabled={submitting}
+				disabled={isPending}
 				className="rounded bg-blue-600 px-4 py-2 text-white hover:bg-blue-700 disabled:opacity-50"
 			>
-				{submitting ? "Enregistrement…" : submitLabel}
+				{isPending ? "Enregistrement…" : submitLabel}
 			</button>
 		</form>
 	);

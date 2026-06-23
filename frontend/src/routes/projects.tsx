@@ -71,7 +71,6 @@ function ProjectsPage() {
 					/>
 				</div>
 			)}
-
 			{projects.length === 0 ? (
 				<p className="text-gray-500">Aucun projet pour le moment.</p>
 			) : (
