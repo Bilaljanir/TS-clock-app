@@ -14,6 +14,16 @@ export type Label = {
 	color: string;
 };
 
+export type ProjectInput = {
+	name: string;
+	description: string | null;
+};
+
+export type LabelInput = {
+	name: string;
+	color: string;
+};
+
 export type Entry = {
 	id: number;
 	description: string | null;
@@ -89,9 +99,33 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 export const api = {
 	projects: {
 		list: () => request<Project[]>("/projects"),
+		create: (input: ProjectInput) =>
+			request<Project>("/projects", {
+				method: "POST",
+				body: JSON.stringify(input),
+			}),
+		update: (id: number, input: ProjectInput) =>
+			request<Project>(`/projects/${id}`, {
+				method: "PATCH",
+				body: JSON.stringify(input),
+			}),
+		delete: (id: number) =>
+			request<void>(`/projects/${id}`, { method: "DELETE" }),
 	},
 	labels: {
 		list: () => request<Label[]>("/labels"),
+		create: (input: LabelInput) =>
+			request<Label>("/labels", {
+				method: "POST",
+				body: JSON.stringify(input),
+			}),
+		update: (id: number, input: LabelInput) =>
+			request<Label>(`/labels/${id}`, {
+				method: "PATCH",
+				body: JSON.stringify(input),
+			}),
+		delete: (id: number) =>
+			request<void>(`/labels/${id}`, { method: "DELETE" }),
 	},
 	entries: {
 		list: (page: number, pageSize: number) =>

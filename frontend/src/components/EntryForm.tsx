@@ -1,16 +1,14 @@
 import { type FormEvent, useState } from "react";
-import {
-	ApiError,
-	type EntryInput,
-	type Label,
-	type Project,
-} from "../lib/api";
+import { type EntryInput, type Label, type Project } from "../lib/api";
+import { parseApiError } from "../lib/formErrors";
+import { ErrorMessage } from "./ErrorMessage";
+import { Field } from "./Field";
 
 export type EntryFormValues = {
 	project_id: number | "";
 	description: string;
-	start_time: string; // valeur d'<input datetime-local>
-	end_time: string; // idem, "" si non renseigné
+	start_time: string; // valeur
+	end_time: string; //  d'<input datetime-local>idem, "" si non renseigné
 	label_ids: number[];
 };
 
@@ -19,7 +17,6 @@ type Props = {
 	labels: Label[];
 	initialValues: EntryFormValues;
 	submitLabel: string;
-	/** Appelle l'API ; doit lever une ApiError en cas d'échec. */
 	onSubmit: (input: EntryInput) => Promise<void>;
 };
 
@@ -54,18 +51,9 @@ export function EntryForm({
 		try {
 			await onSubmit(toApiInput(values));
 		} catch (error) {
-			if (error instanceof ApiError && error.issues?.length) {
-				const fieldErrors: Record<string, string> = {};
-				for (const issue of error.issues) {
-					fieldErrors[issue.path || "_"] = issue.message;
-				}
-				setErrors(fieldErrors);
-				if (fieldErrors._) setGeneralError(fieldErrors._);
-			} else if (error instanceof ApiError) {
-				setGeneralError(error.message);
-			} else {
-				setGeneralError("Une erreur inattendue est survenue.");
-			}
+			const parsed = parseApiError(error);
+			setErrors(parsed.fieldErrors);
+			setGeneralError(parsed.generalError);
 		} finally {
 			setSubmitting(false);
 		}
@@ -82,11 +70,7 @@ export function EntryForm({
 
 	return (
 		<form onSubmit={handleSubmit} className="max-w-lg space-y-5">
-			{generalError && (
-				<p className="rounded border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-700">
-					{generalError}
-				</p>
-			)}
+			<ErrorMessage error={generalError} />
 
 			<Field label="Projet" error={errors.project_id}>
 				<select
@@ -174,25 +158,5 @@ export function EntryForm({
 				{submitting ? "Enregistrement…" : submitLabel}
 			</button>
 		</form>
-	);
-}
-
-function Field({
-	label,
-	error,
-	children,
-}: {
-	label: string;
-	error?: string;
-	children: React.ReactNode;
-}) {
-	return (
-		<div className="flex-1">
-			<span className="mb-1 block text-sm font-medium text-gray-700">
-				{label}
-			</span>
-			{children}
-			{error && <p className="mt-1 text-sm text-red-600">{error}</p>}
-		</div>
 	);
 }

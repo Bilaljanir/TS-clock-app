@@ -1,4 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { ErrorMessage } from "../components/ErrorMessage";
 import { api, type Entry } from "../lib/api";
 import { formatDateTime, formatDuration } from "../lib/format";
 
@@ -20,9 +21,7 @@ export const Route = createFileRoute("/entries")({
 	),
 	errorComponent: ({ error }) => (
 		<div className="p-8">
-			<p className="text-red-600">
-				Impossible de charger les entrées : {error.message}
-			</p>
+			<ErrorMessage error={error} />
 			<Link
 				to="/entries"
 				search={{ page: 1, pageSize: 20 }}

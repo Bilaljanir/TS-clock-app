@@ -5,6 +5,7 @@ import {
 	useRouter,
 } from "@tanstack/react-router";
 import { EntryForm, type EntryFormValues } from "../components/EntryForm";
+import { ErrorMessage } from "../components/ErrorMessage";
 import { api } from "../lib/api";
 import { toDatetimeLocal } from "../lib/format";
 
@@ -19,10 +20,11 @@ export const Route = createFileRoute("/entries_/new")({
 	component: NewEntryPage,
 	pendingComponent: () => <p className="p-8 text-gray-500">Chargement…</p>,
 	errorComponent: ({ error }) => (
-		<p className="p-8 text-red-600">Erreur : {error.message}</p>
+		<div className="p-8">
+			<ErrorMessage error={error} />
+		</div>
 	),
 });
-
 function NewEntryPage() {
 	const { projects, labels } = Route.useLoaderData();
 	const navigate = useNavigate();
