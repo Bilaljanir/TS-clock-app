@@ -58,7 +58,7 @@ function ClockPage() {
 				labels={labels}
 				onSet={async (input) => {
 					await api.clock.set(input);
-					await router.invalidate();
+					await router.invalidate({ filter: (route) => route.routeId === Route.id });
 				}}
 			/>
 		</div>
