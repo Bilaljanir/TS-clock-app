@@ -29,3 +29,15 @@ export function formatDuration(start: string, end: string | null): string {
 
 	return `${hours}h ${String(minutes).padStart(2, "0")}m`;
 }
+
+/** Durée depuis start jusqu'à now au format h:mm:ss */
+
+export function formatElapsed(start: string, now: number = Date.now()): string {
+	const totalSeconds = Math.max(0, Math.floor((now - new Date(start).getTime()) / 1000));
+	const hours = Math.floor(totalSeconds / 3600);
+	const minutes = Math.floor((totalSeconds % 3600) / 60);
+	const seconds = totalSeconds % 60;
+	const pad = (n: number)=> String(n).padStart(2, "0");
+
+	return `${hours}:${pad(minutes)}:${pad(seconds)}`;
+}

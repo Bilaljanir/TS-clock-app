@@ -44,6 +44,15 @@ export type EntryInput = {
 	label_ids: number[];
 };
 
+export type ClockInput = {
+	project_id: number | null;
+	label_ids: number[];
+};
+
+export type ClockState = {
+	active: Entry | null;
+};
+
 export type Paginated<T> = {
 	data: T[];
 	pagination: {
@@ -139,6 +148,14 @@ export const api = {
 		update: (id: number, input: EntryInput) =>
 			request<Entry>(`/entries/${id}`, {
 				method: "PATCH",
+				body: JSON.stringify(input),
+			}),
+	},
+	clock: {
+		get: () => request<ClockState>("/clock"),
+		set: (input: ClockInput) =>
+			request<ClockState>("/clock", {
+				method: "PUT",
 				body: JSON.stringify(input),
 			}),
 	},

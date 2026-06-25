@@ -25,6 +25,9 @@ function RootComponent() {
 					>
 						Accueil
 					</Link>
+					<Link to="/clock" className={linkClass} activeProps={activeProps}>
+						Horloge
+					</Link>
 					<Link
 						to="/entries"
 						search={{ page: 1, pageSize: 20 }}
