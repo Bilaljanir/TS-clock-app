@@ -1,4 +1,4 @@
-import { useActionState, useState } from "react";
+import { useActionState } from "react";
 import { type ClockInput, type Entry, type Label, type Project } from "../lib/api";
 import { type ParsedFormError, parseApiError } from "../lib/formErrors";
 import { ErrorMessage } from "./ErrorMessage";
@@ -14,13 +14,6 @@ type Props = {
 const NO_ERROR: ParsedFormError = { fieldErrors: {}, generalError: null };
 
 export function ClockForm({ active, projects, labels, onSet }: Props) {
-	const [projectId, setProjectId] = useState<number | null>(
-		active?.project.id ?? null,
-	);
-	const [labelIds, setLabelIds] = useState<number[]>(
-		() => active?.labels.map((l) => l.id) ?? [],
-	);
-
 	const [errors, formAction, isPending] = useActionState<
 		ParsedFormError,
 		FormData
@@ -33,6 +26,7 @@ export function ClockForm({ active, projects, labels, onSet }: Props) {
 				return NO_ERROR;
 			}
 
+			const projectId = Number(formData.get("project_id")) || null;
 			if (projectId === null) {
 				return {
 					fieldErrors: { project_id: "Choisissez un projet." },
@@ -40,18 +34,13 @@ export function ClockForm({ active, projects, labels, onSet }: Props) {
 				};
 			}
 
+			const labelIds = formData.getAll("label_ids").map(Number);
 			await onSet({ project_id: projectId, label_ids: labelIds });
 			return NO_ERROR;
 		} catch (error) {
 			return parseApiError(error);
 		}
 	}, NO_ERROR);
-
-	function toggleLabel(id: number) {
-		setLabelIds((ids) =>
-			ids.includes(id) ? ids.filter((l) => l !== id) : [...ids, id],
-		);
-	}
 
 	const saveLabel = active ? "Mettre à jour" : "Pointer l'arrivée";
 
@@ -61,8 +50,8 @@ export function ClockForm({ active, projects, labels, onSet }: Props) {
 
 			<Field label="Projet" error={errors.fieldErrors.project_id}>
 				<select
-					value={projectId ?? ""}
-					onChange={(e) => setProjectId(Number(e.target.value) || null)}
+					name="project_id"
+					defaultValue={active?.project.id ?? ""}
 					className="w-full rounded border border-gray-300 px-3 py-2"
 				>
 					<option value="">— Choisir un projet —</option>
@@ -85,8 +74,9 @@ export function ClockForm({ active, projects, labels, onSet }: Props) {
 						<label key={label.id} className="flex items-center gap-2 text-sm">
 							<input
 								type="checkbox"
-								checked={labelIds.includes(label.id)}
-								onChange={() => toggleLabel(label.id)}
+								name="label_ids"
+								value={label.id}
+								defaultChecked={active?.labels.some((l) => l.id === label.id) ?? false}
 							/>
 							<span
 								className="h-2 w-2 rounded-full"
