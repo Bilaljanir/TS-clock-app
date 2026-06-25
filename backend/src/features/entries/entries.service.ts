@@ -1,6 +1,7 @@
 import { sql } from "../../db";
 import { ConflictError, NotFoundError, ValidationError } from "../../lib/errors";
 import { type PageParams, type Paginated, paginate } from "../../lib/pagination";
+import { refreshStats } from "../stats/stats.service";
 import type { CreateEntryInput, UpdateEntryInput } from "./entries.model";
 
 export type EntryDetail = {
@@ -98,6 +99,7 @@ export async function createEntry(input: CreateEntryInput): Promise<EntryDetail>
       return row.id;
     });
 
+    await refreshStats();
     return getEntry(id);
   } catch (error) {
     throw mapActiveEntryConflict(error);
@@ -146,6 +148,7 @@ export async function updateEntry(
     throw mapActiveEntryConflict(error);
   }
 
+  await refreshStats();
   return getEntry(id);
 }
 
@@ -153,6 +156,7 @@ export async function deleteEntry(id: number): Promise<void> {
   await getRawEntry(id); // lève 404 si absent
   // ON DELETE CASCADE retire les associations dans time_entry_labels.
   await sql`DELETE FROM time_entries WHERE id = ${id}`;
+  await refreshStats();
 }
 
 // --- Helpers privés ---

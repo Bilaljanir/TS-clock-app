@@ -59,3 +59,28 @@ CREATE OR REPLACE TRIGGER update_labels_updated_at BEFORE UPDATE ON labels
 
 CREATE OR REPLACE TRIGGER update_time_entries_updated_at BEFORE UPDATE ON time_entries
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+CREATE MATERIALIZED VIEW IF NOT EXISTS stats_project_daily AS
+SELECT
+    te.project_id,
+    (te.start_time AT TIME ZONE 'UTC')::date AS day,
+    SUM(EXTRACT(EPOCH FROM (te.end_time - te.start_time)))::bigint AS total_seconds
+FROM time_entries te
+WHERE te.end_time IS NOT NULL
+GROUP BY te.project_id, day;
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_stats_project_daily
+    ON stats_project_daily (project_id, day);
+
+CREATE MATERIALIZED VIEW IF NOT EXISTS stats_label_daily AS
+SELECT
+    tel.label_id,
+    (te.start_time AT TIME ZONE 'UTC')::date AS day,
+    SUM(EXTRACT(EPOCH FROM (te.end_time - te.start_time)))::bigint AS total_seconds
+FROM time_entries te
+JOIN time_entry_labels tel ON tel.time_entry_id = te.id
+WHERE te.end_time IS NOT NULL
+GROUP BY tel.label_id, day;
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_stats_label_daily
+    ON stats_label_daily (label_id, day);

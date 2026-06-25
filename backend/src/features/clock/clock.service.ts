@@ -6,6 +6,7 @@ import {
   getEntry,
   insertLabelLinks,
 } from "../entries/entries.service";
+import { refreshStats } from "../stats/stats.service";
 import type { SetClockInput } from "./clock.model";
 
 export async function getActiveEntry(): Promise<EntryDetail | null> {
@@ -22,6 +23,7 @@ export async function setClock(
 
   if (input.project_id === null) {
     await sql`UPDATE time_entries SET end_time = now() WHERE end_time IS NULL`;
+    await refreshStats();
     return null;
   }
 
@@ -42,5 +44,6 @@ export async function setClock(
     return row.id;
   });
 
+  await refreshStats();
   return getEntry(id);
 }
