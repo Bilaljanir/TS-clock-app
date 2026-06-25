@@ -1,19 +1,25 @@
 import { useActionState } from "react";
-import { type ClockInput, type Entry, type Label, type Project } from "../lib/api";
+import type { Entry, EntryInput, Label, Project } from "../lib/api";
 import { type ParsedFormError, parseApiError } from "../lib/formErrors";
 import { ErrorMessage } from "./ErrorMessage";
 import { Field } from "./Field";
+
+
+export type ClockAction =
+	| { type: "clock-in"; projectId: number; labelIds: number[] }
+	| { type: "clock-out" }
+	| { type: "update"; entryId: number; input: EntryInput };
 
 type Props = {
 	active: Entry | null;
 	projects: Project[];
 	labels: Label[];
-	onSet: (input: ClockInput) => Promise<void>;
+	onSubmit: (action: ClockAction) => Promise<void>;
 };
 
 const NO_ERROR: ParsedFormError = { fieldErrors: {}, generalError: null };
 
-export function ClockForm({ active, projects, labels, onSet }: Props) {
+export function ClockForm({ active, projects, labels, onSubmit }: Props) {
 	const [errors, formAction, isPending] = useActionState<
 		ParsedFormError,
 		FormData
@@ -22,7 +28,7 @@ export function ClockForm({ active, projects, labels, onSet }: Props) {
 
 		try {
 			if (intent === "stop") {
-				await onSet({ project_id: null, label_ids: [] });
+				await onSubmit({ type: "clock-out" });
 				return NO_ERROR;
 			}
 
@@ -35,7 +41,25 @@ export function ClockForm({ active, projects, labels, onSet }: Props) {
 			}
 
 			const labelIds = formData.getAll("label_ids").map(Number);
-			await onSet({ project_id: projectId, label_ids: labelIds });
+
+			// Déjà pointé : on met à jour l'entrée en cours plutôt que d'en créer
+			// une nouvelle (sinon le chrono repart à zéro et la session est fragmentée).
+			if (active) {
+				await onSubmit({
+					type: "update",
+					entryId: active.id,
+					input: {
+						project_id: projectId,
+						description: active.description,
+						start_time: active.start_time,
+						end_time: active.end_time,
+						label_ids: labelIds,
+					},
+				});
+				return NO_ERROR;
+			}
+
+			await onSubmit({ type: "clock-in", projectId, labelIds });
 			return NO_ERROR;
 		} catch (error) {
 			return parseApiError(error);
@@ -76,7 +100,9 @@ export function ClockForm({ active, projects, labels, onSet }: Props) {
 								type="checkbox"
 								name="label_ids"
 								value={label.id}
-								defaultChecked={active?.labels.some((l) => l.id === label.id) ?? false}
+								defaultChecked={
+									active?.labels.some((l) => l.id === label.id) ?? false
+								}
 							/>
 							<span
 								className="h-2 w-2 rounded-full"

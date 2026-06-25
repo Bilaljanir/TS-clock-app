@@ -1,7 +1,7 @@
 import { createFileRoute, Link, useRouter } from "@tanstack/react-router";
 import { ClockForm } from "../components/ClockForm";
-import { StatusBanner } from "../components/StatusBanner";
 import { ErrorMessage } from "../components/ErrorMessage";
+import { StatusBanner } from "../components/StatusBanner";
 import { api } from "../lib/api";
 
 export const Route = createFileRoute("/clock")({
@@ -46,9 +46,24 @@ function ClockPage() {
 				active={active}
 				projects={projects}
 				labels={labels}
-				onSet={async (input) => {
-					await api.clock.set(input);
-					await router.invalidate({ filter: (route) => route.routeId === Route.id });
+				onSubmit={async (action) => {
+					switch (action.type) {
+						case "clock-in":
+							await api.clock.set({
+								project_id: action.projectId,
+								label_ids: action.labelIds,
+							});
+							break;
+						case "clock-out":
+							await api.clock.set({ project_id: null, label_ids: [] });
+							break;
+						case "update":
+							await api.entries.update(action.entryId, action.input);
+							break;
+					}
+					await router.invalidate({
+						filter: (route) => route.routeId === Route.id,
+					});
 				}}
 			/>
 		</div>
