@@ -14,8 +14,8 @@ type Props = {
 const NO_ERROR: ParsedFormError = { fieldErrors: {}, generalError: null };
 
 export function ClockForm({ active, projects, labels, onSet }: Props) {
-	const [projectId, setProjectId] = useState<number | "">(
-		active?.project.id ?? "",
+	const [projectId, setProjectId] = useState<number | null>(
+		active?.project.id ?? null,
 	);
 	const [labelIds, setLabelIds] = useState<number[]>(
 		() => active?.labels.map((l) => l.id) ?? [],
@@ -33,7 +33,7 @@ export function ClockForm({ active, projects, labels, onSet }: Props) {
 				return NO_ERROR;
 			}
 
-			if (projectId === "") {
+			if (projectId === null) {
 				return {
 					fieldErrors: { project_id: "Choisissez un projet." },
 					generalError: null,
@@ -61,8 +61,8 @@ export function ClockForm({ active, projects, labels, onSet }: Props) {
 
 			<Field label="Projet" error={errors.fieldErrors.project_id}>
 				<select
-					value={projectId}
-					onChange={(e) => setProjectId(Number(e.target.value) || "")}
+					value={projectId ?? ""}
+					onChange={(e) => setProjectId(Number(e.target.value) || null)}
 					className="w-full rounded border border-gray-300 px-3 py-2"
 				>
 					<option value="">— Choisir un projet —</option>
