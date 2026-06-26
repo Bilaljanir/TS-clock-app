@@ -71,3 +71,20 @@ cd frontend
 bun install
 bun run dev        # http://localhost:5173
 ```
+
+## Statistiques
+
+La page `/stats` montre le temps passé par projet et par label, avec un filtre par dates.
+
+Les totaux sont calculés directement en SQL sur `time_entries` au moment où on
+ouvre la page (`SUM(end_time - start_time)` regroupé par projet / par label),
+avec les index existants. C'est **toujours à jour** et largement assez rapide à
+cette échelle.
+
+J'avais d'abord testé des vues matérialisées rafraîchies à chaque écriture, mais
+un refresh recalcule toute la vue : le faire à chaque pointage coûtait plus cher
+que de calculer à la lecture, pour rien. Sur un gros volume, on garderait une
+vue matérialisée mais rafraîchie sur un planning (ex. pg_cron), pas à chaque
+écriture.
+
+Plus de détails dans [`docs/statistics.md`](docs/statistics.md).
