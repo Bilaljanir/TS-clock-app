@@ -1,7 +1,7 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { ErrorMessage } from "../components/ErrorMessage";
 import { api, type LabelStat, type ProjectStat } from "../lib/api";
-import formatSeconds  from "../lib/format";
+import { formatSeconds } from "../lib/format";
 
 type StatsSearch = {
 	from?: string;
