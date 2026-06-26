@@ -76,14 +76,15 @@ bun run dev        # http://localhost:5173
 
 La page `/stats` montre le temps passé par projet et par label, avec un filtre par dates.
 
-Pour aller vite, j'ai utilisé des **vues matérialisées** : au lieu de recalculer
-les totaux à chaque ouverture de la page, le total est déjà pré-calculé par jour
-dans la base. Je garde le grain "par jour" pour pouvoir quand même filtrer entre
-deux dates (il suffit d'additionner les jours).
+Les totaux sont calculés directement en SQL sur `time_entries` au moment où on
+ouvre la page (`SUM(end_time - start_time)` regroupé par projet / par label),
+avec les index existants. C'est **toujours à jour** et largement assez rapide à
+cette échelle.
 
-Pour que les chiffres restent justes, je rafraîchis ces vues à chaque fois qu'une
-entrée change (création, modif, suppression, pointage). C'est un petit coût à
-l'écriture, mais les stats sont toujours à jour. Sur un gros volume, on ferait
-plutôt un rafraîchissement automatique toutes les X minutes.
+J'avais d'abord testé des vues matérialisées rafraîchies à chaque écriture, mais
+un refresh recalcule toute la vue : le faire à chaque pointage coûtait plus cher
+que de calculer à la lecture, pour rien. Sur un gros volume, on garderait une
+vue matérialisée mais rafraîchie sur un planning (ex. pg_cron), pas à chaque
+écriture.
 
 Plus de détails dans [`docs/statistics.md`](docs/statistics.md).

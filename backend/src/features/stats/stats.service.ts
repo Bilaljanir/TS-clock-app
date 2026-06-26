@@ -32,11 +32,12 @@ export async function getStats(query: StatsQuery): Promise<Stats> {
       SELECT
         p.id AS project_id,
         p.name,
-        SUM(s.total_seconds)::bigint AS total_seconds
-      FROM stats_project_daily s
-      JOIN projects p ON p.id = s.project_id
-      WHERE (${from}::date IS NULL OR s.day >= ${from}::date)
-        AND (${to}::date IS NULL OR s.day <= ${to}::date)
+        SUM(EXTRACT(EPOCH FROM (te.end_time - te.start_time)))::bigint AS total_seconds
+      FROM time_entries te
+      JOIN projects p ON p.id = te.project_id
+      WHERE te.end_time IS NOT NULL
+        AND (${from}::date IS NULL OR (te.start_time AT TIME ZONE 'UTC')::date >= ${from}::date)
+        AND (${to}::date IS NULL OR (te.start_time AT TIME ZONE 'UTC')::date <= ${to}::date)
       GROUP BY p.id, p.name
       ORDER BY total_seconds DESC, p.name ASC
     ` as Promise<(RawStatRow & { project_id: number; name: string })[]>,
@@ -45,11 +46,13 @@ export async function getStats(query: StatsQuery): Promise<Stats> {
         l.id AS label_id,
         l.name,
         l.color,
-        SUM(s.total_seconds)::bigint AS total_seconds
-      FROM stats_label_daily s
-      JOIN labels l ON l.id = s.label_id
-      WHERE (${from}::date IS NULL OR s.day >= ${from}::date)
-        AND (${to}::date IS NULL OR s.day <= ${to}::date)
+        SUM(EXTRACT(EPOCH FROM (te.end_time - te.start_time)))::bigint AS total_seconds
+      FROM time_entries te
+      JOIN time_entry_labels tel ON tel.time_entry_id = te.id
+      JOIN labels l ON l.id = tel.label_id
+      WHERE te.end_time IS NOT NULL
+        AND (${from}::date IS NULL OR (te.start_time AT TIME ZONE 'UTC')::date >= ${from}::date)
+        AND (${to}::date IS NULL OR (te.start_time AT TIME ZONE 'UTC')::date <= ${to}::date)
       GROUP BY l.id, l.name, l.color
       ORDER BY total_seconds DESC, l.name ASC
     ` as Promise<(RawStatRow & { label_id: number; name: string; color: string })[]>,
@@ -71,8 +74,4 @@ export async function getStats(query: StatsQuery): Promise<Stats> {
   const total_seconds = by_project.reduce((sum, r) => sum + r.total_seconds, 0);
 
   return { range: { from, to }, total_seconds, by_project, by_label };
-}
-export async function refreshStats(): Promise<void> {
-  await sql`REFRESH MATERIALIZED VIEW CONCURRENTLY stats_project_daily`;
-  await sql`REFRESH MATERIALIZED VIEW CONCURRENTLY stats_label_daily`;
 }

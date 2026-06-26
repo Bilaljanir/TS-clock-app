@@ -14,24 +14,29 @@ filtre par dates (du / au).
   (c'est normal, et c'est indiqué sur la page).
 - L'API renvoie des **secondes**, c'est le front qui affiche "1h 20m".
 
-## L'optimisation (vues matérialisées)
+## L'optimisation (le choix retenu)
 
-Plutôt que de tout recalculer à chaque ouverture de la page, les totaux sont
-pré-calculés **par jour** dans deux vues matérialisées :
+Les totaux sont **calculés directement** sur `time_entries` au moment où on
+ouvre la page, avec une simple agrégation SQL (`SUM(end_time - start_time)`
+regroupé par projet / par label). Les index existants sur `time_entries`
+(`idx_time_entries_start_time`, `idx_time_entries_project_id`) suffisent à
+cette échelle.
 
-- `stats_project_daily` → temps par projet et par jour
-- `stats_label_daily` → temps par label et par jour
+**Pourquoi pas de vue matérialisée ?** J'avais d'abord pré-calculé les totaux
+par jour dans deux vues matérialisées rafraîchies à chaque écriture. Mais un
+`REFRESH MATERIALIZED VIEW` recalcule **toute** la vue à zéro : le faire à
+chaque pointage revient à payer le coût d'agrégation complet sur chaque
+écriture — soit plus cher que de calculer à la lecture, tout en couplant la
+logique stats au pointage. Une vue matérialisée n'a d'intérêt que si les
+lectures sont massives et le recalcul coûteux ; ici c'est l'inverse (beaucoup
+de pointages, peu de consultations de la page). J'ai donc choisi l'agrégation
+directe : **toujours à jour**, plus simple, et largement assez rapide à cette
+échelle.
 
-Pourquoi "par jour" ? Parce qu'on peut quand même filtrer entre deux dates : il
-suffit d'additionner les jours de la plage. Un total global pré-calculé, lui,
-serait impossible à filtrer par date.
-
-Une vue matérialisée ne se met pas à jour toute seule. Pour que les chiffres
-restent justes, je la rafraîchis à chaque fois qu'une entrée change (création,
-modif, suppression, pointage). C'est un petit coût à l'écriture, assumé à cette
-échelle. Sur un gros volume, on ferait plutôt un rafraîchissement automatique
-toutes les X minutes (ex. pg_cron). Il existe aussi un `POST /stats/refresh`
-manuel au cas où.
+Si un jour le volume devenait gros, l'évolution serait soit une vue
+matérialisée rafraîchie **sur un planning** (ex. pg_cron toutes les X minutes,
+avec un léger retard assumé), soit une table de rollup mise à jour de façon
+incrémentale — mais pas un refresh synchrone sur le chemin d'écriture.
 
 ## L'API
 
@@ -43,15 +48,11 @@ GET /stats?from=AAAA-MM-JJ&to=AAAA-MM-JJ
     by_project: [{ project_id, name, total_seconds }],
     by_label:   [{ label_id, name, color, total_seconds }]
   }
-
-POST /stats/refresh   → 204   (rafraîchit les vues)
 ```
 
 ## Les fichiers
 
-- `db/schema.sql` → les 2 vues + leurs index
-- `backend/src/features/stats/` → l'API stats (model, service, routes)
-- `entries.service` / `clock.service` → appellent `refreshStats()` après écriture
+- `backend/src/features/stats/` → l'API stats (model, service, routes) — l'agrégation SQL est dans `stats.service.ts`
 - `frontend/src/routes/stats.tsx` → la page
 - `frontend/src/lib/api.ts` + `format.ts` → client API et affichage des durées
 

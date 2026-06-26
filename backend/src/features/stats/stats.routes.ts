@@ -7,9 +7,4 @@ export const statsRoutes = new Elysia({ prefix: "/stats" })
   .get("/", ({ query }) => {
     const params = validate(StatsQuerySchema, query);
     return stats.getStats(params);
-  })
-
-  .post("/refresh", async ({ set }) => {
-    await stats.refreshStats();
-    set.status = 204;
   });
