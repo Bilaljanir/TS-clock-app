@@ -27,32 +27,33 @@ export async function getStats(query: StatsQuery): Promise<Stats> {
   const from = query.from ?? null;
   const to = query.to ?? null;
 
-  const byProject = (await sql`
-    SELECT
-      p.id AS project_id,
-      p.name,
-      SUM(s.total_seconds)::bigint AS total_seconds
-    FROM stats_project_daily s
-    JOIN projects p ON p.id = s.project_id
-    WHERE (${from}::date IS NULL OR s.day >= ${from}::date)
-      AND (${to}::date IS NULL OR s.day <= ${to}::date)
-    GROUP BY p.id, p.name
-    ORDER BY total_seconds DESC, p.name ASC
-  `) as (RawStatRow & { project_id: number; name: string })[];
-
-  const byLabel = (await sql`
-    SELECT
-      l.id AS label_id,
-      l.name,
-      l.color,
-      SUM(s.total_seconds)::bigint AS total_seconds
-    FROM stats_label_daily s
-    JOIN labels l ON l.id = s.label_id
-    WHERE (${from}::date IS NULL OR s.day >= ${from}::date)
-      AND (${to}::date IS NULL OR s.day <= ${to}::date)
-    GROUP BY l.id, l.name, l.color
-    ORDER BY total_seconds DESC, l.name ASC
-  `) as (RawStatRow & { label_id: number; name: string; color: string })[];
+  const [byProject, byLabel] = await Promise.all([
+    sql`
+      SELECT
+        p.id AS project_id,
+        p.name,
+        SUM(s.total_seconds)::bigint AS total_seconds
+      FROM stats_project_daily s
+      JOIN projects p ON p.id = s.project_id
+      WHERE (${from}::date IS NULL OR s.day >= ${from}::date)
+        AND (${to}::date IS NULL OR s.day <= ${to}::date)
+      GROUP BY p.id, p.name
+      ORDER BY total_seconds DESC, p.name ASC
+    ` as Promise<(RawStatRow & { project_id: number; name: string })[]>,
+    sql`
+      SELECT
+        l.id AS label_id,
+        l.name,
+        l.color,
+        SUM(s.total_seconds)::bigint AS total_seconds
+      FROM stats_label_daily s
+      JOIN labels l ON l.id = s.label_id
+      WHERE (${from}::date IS NULL OR s.day >= ${from}::date)
+        AND (${to}::date IS NULL OR s.day <= ${to}::date)
+      GROUP BY l.id, l.name, l.color
+      ORDER BY total_seconds DESC, l.name ASC
+    ` as Promise<(RawStatRow & { label_id: number; name: string; color: string })[]>,
+  ]);
 
   const by_project: ProjectStat[] = byProject.map((r) => ({
     project_id: r.project_id,
