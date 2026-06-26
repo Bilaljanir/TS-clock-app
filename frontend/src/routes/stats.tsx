@@ -1,12 +1,7 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { ErrorMessage } from "../components/ErrorMessage";
-import { api, type LabelStat, type ProjectStat } from "../lib/api";
+import { api, type LabelStat, type ProjectStat, type StatsFilter } from "../lib/api";
 import { formatSeconds } from "../lib/format";
-
-type StatsSearch = {
-	from?: string;
-	to?: string;
-};
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -16,7 +11,7 @@ function parseDate(value: unknown): string | undefined {
 }
 
 export const Route = createFileRoute("/stats")({
-	validateSearch: (search: Record<string, unknown>): StatsSearch => ({
+	validateSearch: (search: Record<string, unknown>): StatsFilter => ({
 		from: parseDate(search.from),
 		to: parseDate(search.to),
 	}),
@@ -75,7 +70,7 @@ function StatsPage() {
 	);
 }
 
-function Filters({ from, to }: StatsSearch) {
+function Filters({ from, to }: StatsFilter) {
 	const navigate = useNavigate();
 
 	return (
