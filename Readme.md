@@ -56,7 +56,7 @@ bun install
 bun run dev
 ```
 
-Ouvrir `http://localhost:3000` dans le navigateur.
+Ouvrir `http://localhost:5173` dans le navigateur.
 
 ## Réinitialiser la base
 
