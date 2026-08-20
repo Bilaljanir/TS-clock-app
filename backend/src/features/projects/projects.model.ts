@@ -1,4 +1,5 @@
 import * as v from "valibot";
+import { description } from "../../lib/schemas";
 
 /** Champs réutilisables. */
 const name = v.pipe(
@@ -6,14 +7,6 @@ const name = v.pipe(
   v.trim(),
   v.minLength(1, "Le nom est requis."),
   v.maxLength(255, "Le nom ne peut pas dépasser 255 caractères."),
-);
-
-const description = v.nullish(
-  v.pipe(
-    v.string("La description doit être une chaîne de caractères."),
-    v.trim(),
-    v.maxLength(2000, "La description ne peut pas dépasser 2000 caractères."),
-  ),
 );
 
 /** Corps de POST /projects. */
