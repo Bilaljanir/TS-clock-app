@@ -1,6 +1,6 @@
 import { useActionState } from "react";
 import type { Entry, EntryInput, Label, Project } from "../lib/api";
-import { type ParsedFormError, parseApiError } from "../lib/formErrors";
+import { NO_ERROR, type ParsedFormError, parseApiError } from "../lib/formErrors";
 import { ErrorMessage } from "./ErrorMessage";
 import { Field } from "./Field";
 
@@ -16,8 +16,6 @@ type Props = {
 	labels: Label[];
 	onSubmit: (action: ClockAction) => Promise<void>;
 };
-
-const NO_ERROR: ParsedFormError = { fieldErrors: {}, generalError: null };
 
 export function ClockForm({ active, projects, labels, onSubmit }: Props) {
 	const [errors, formAction, isPending] = useActionState<

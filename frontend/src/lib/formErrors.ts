@@ -4,6 +4,9 @@ export type ParsedFormError = {
 	fieldErrors: Record<string, string>;
 	generalError: string | null;
 };
+
+export const NO_ERROR: ParsedFormError = { fieldErrors: {}, generalError: null };
+
 export function parseApiError(error: unknown): ParsedFormError {
 	if (error instanceof ApiError && error.issues?.length) {
 		const fieldErrors: Record<string, string> = {};

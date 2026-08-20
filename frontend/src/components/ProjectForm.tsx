@@ -1,6 +1,6 @@
 import { useActionState, useState } from "react";
 import type { ProjectInput } from "../lib/api";
-import { type ParsedFormError, parseApiError } from "../lib/formErrors";
+import { NO_ERROR, type ParsedFormError, parseApiError } from "../lib/formErrors";
 import { ErrorMessage } from "./ErrorMessage";
 import { Field } from "./Field";
 
@@ -16,8 +16,6 @@ type Props = {
 	onSubmit: (input: ProjectInput) => Promise<void>;
 	onCancel?: () => void;
 };
-
-const NO_ERROR: ParsedFormError = { fieldErrors: {}, generalError: null };
 
 function toApiInput(values: ProjectFormValues): ProjectInput {
 	return {
