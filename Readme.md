@@ -1,90 +1,80 @@
 # TS Clock App
 
-Application full-stack TypeScript de suivi du temps (time tracking).
+## Stack
 
-- **Frontend** : React + TanStack Router (Vite) — port `5173`
-- **Backend** : Bun + Elysia — port `3000`
-- **Base de données** : PostgreSQL (Docker)
+- **Frontend** : React 19, TanStack Router, Vite, Tailwind CSS
+- **Backend** : Bun, Elysia, Valibot (validation)
+- **Base de données** : PostgreSQL 17 (Docker)
 
 ## Prérequis
 
-- [Bun](https://bun.sh/) (dernière version)
+- [Bun](https://bun.sh/) — `curl -fsSL https://bun.sh/install | bash`
 - [Docker](https://www.docker.com/) avec Docker Compose
 
-## 1. Variables d'environnement
+## Démarrage
+
+### 1. Préparer l'environnement
 
 ```bash
 cp .env.example .env
 ```
 
-Le fichier `.env` est lu à la fois par Docker Compose et par le backend.
-Par défaut la base est exposée sur le port `5433` (pour éviter un conflit avec
-un PostgreSQL déjà installé sur `5432`).
+Le fichier `.env` configure à la fois Docker et le backend. Par défaut la DB est sur le port `5433` pour éviter les conflits avec un PostgreSQL déjà installé en 5432.
 
-## 2. Base de données (PostgreSQL via Docker)
-
-Démarrer la base en **une seule commande** :
+### 2. Lancer la base de données
 
 ```bash
 docker compose up -d
 ```
 
-Le schéma (`db/schema.sql`) est exécuté automatiquement au **premier** démarrage
-(quand le volume de données est vide).
-
-Vérifier que la base tourne :
+Le schéma (`db/schema.sql`) est appliqué automatiquement au premier démarrage. Vérifier que tout est bon :
 
 ```bash
 docker compose ps
-docker compose exec db psql -U clock -d clock -c "\dt"
 ```
 
-> ℹ️ Le schéma n'est rejoué automatiquement que sur une base vierge.
-> Pour repartir de zéro après une modification du schéma :
-> ```bash
-> docker compose down -v && docker compose up -d
-> ```
-> Ou rejouer le DDL (idempotent) sur la base existante :
-> ```bash
-> docker compose exec -T db psql -U clock -d clock < db/schema.sql
-> ```
-
-Arrêter la base :
-
-```bash
-docker compose down        # garde les données
-docker compose down -v     # supprime aussi les données
-```
-
-## 3. Backend
+### 3. Lancer le backend
 
 ```bash
 cd backend
 bun install
-bun run dev        # http://localhost:3000
+bun run dev
 ```
 
-## 4. Frontend
+Le serveur démarre sur `http://localhost:3000`. On peut vérifier avec :
+
+```bash
+curl http://localhost:3000
+On verra -> {"status":"ok","service":"ts-clock-app-api"}
+```
+
+### 4. Lancer le frontend
 
 ```bash
 cd frontend
 bun install
-bun run dev        # http://localhost:5173
+bun run dev
 ```
 
-## Statistiques
+Ouvrir `http://localhost:3000` dans le navigateur.
 
-La page `/stats` montre le temps passé par projet et par label, avec un filtre par dates.
+## Réinitialiser la base
 
-Les totaux sont calculés directement en SQL sur `time_entries` au moment où on
-ouvre la page (`SUM(end_time - start_time)` regroupé par projet / par label),
-avec les index existants. C'est **toujours à jour** et largement assez rapide à
-cette échelle.
+Pour repartir de zéro (supprimer toutes les données) :
 
-J'avais d'abord testé des vues matérialisées rafraîchies à chaque écriture, mais
-un refresh recalcule toute la vue : le faire à chaque pointage coûtait plus cher
-que de calculer à la lecture, pour rien. Sur un gros volume, on garderait une
-vue matérialisée mais rafraîchie sur un planning (ex. pg_cron), pas à chaque
-écriture.
+```bash
+docker compose down -v && docker compose up -d
+```
 
-Plus de détails dans [`docs/statistics.md`](docs/statistics.md).
+Ou rejouer le schéma sans supprimer les données :
+
+```bash
+docker compose exec -T db psql -U clock -d clock < db/schema.sql
+```
+
+## Fonctionnalités
+
+- **Horloge** : pointer l'arrivée / le départ sur un projet, avec labels
+- **Entrées** : liste paginée des sessions de travail, édition manuelle
+- **Projets & Labels** : CRUD simple
+- **Statistiques** : temps total par projet et par label, filtrable par dates
