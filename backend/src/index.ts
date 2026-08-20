@@ -4,10 +4,9 @@ import { clockRoutes } from "./features/clock/clock.routes";
 import { entriesRoutes } from "./features/entries/entries.routes";
 import { labelsRoutes } from "./features/labels/labels.routes";
 import { projectsRoutes } from "./features/projects/projects.routes";
+import { statsRoutes } from "./features/stats/stats.routes";
 import { AppError, type ErrorBody } from "./lib/errors";
 
-// CORS promu en scope global pour s'appliquer à TOUS les routers
-// (sinon les hooks ne se propagent pas de façon fiable aux sous-instances).
 const corsPlugin = new Elysia({ name: "cors-global" }).use(cors()).as("global");
 
 const app = new Elysia()
@@ -41,6 +40,7 @@ const app = new Elysia()
   .use(labelsRoutes)
   .use(entriesRoutes)
   .use(clockRoutes)
+  .use(statsRoutes)
   .listen(3000);
 
 console.log(`🦊 API Elysia démarrée sur http://localhost:${app.server?.port}`);

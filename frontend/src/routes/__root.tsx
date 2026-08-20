@@ -42,6 +42,9 @@ function RootComponent() {
 					<Link to="/labels" className={linkClass} activeProps={activeProps}>
 						Labels
 					</Link>
+					<Link to="/stats" className={linkClass} activeProps={activeProps}>
+						Statistiques
+					</Link>
 				</nav>
 			</header>
 

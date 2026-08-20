@@ -53,6 +53,32 @@ export type ClockState = {
 	active: Entry | null;
 };
 
+/** Filtre de plage temporelle (dates AAAA-MM-JJ), bornes optionnelles. */
+export type StatsFilter = {
+	from?: string;
+	to?: string;
+};
+
+export type ProjectStat = {
+	project_id: number;
+	name: string;
+	total_seconds: number;
+};
+
+export type LabelStat = {
+	label_id: number;
+	name: string;
+	color: string;
+	total_seconds: number;
+};
+
+export type Stats = {
+	range: { from: string | null; to: string | null };
+	total_seconds: number;
+	by_project: ProjectStat[];
+	by_label: LabelStat[];
+};
+
 export type Paginated<T> = {
 	data: T[];
 	pagination: {
@@ -158,5 +184,14 @@ export const api = {
 				method: "PUT",
 				body: JSON.stringify(input),
 			}),
+	},
+	stats: {
+		get: (filter: StatsFilter = {}) => {
+			const params = new URLSearchParams();
+			if (filter.from) params.set("from", filter.from);
+			if (filter.to) params.set("to", filter.to);
+			const query = params.toString();
+			return request<Stats>(`/stats${query ? `?${query}` : ""}`);
+		},
 	},
 };
